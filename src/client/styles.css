@@ -1,0 +1,238 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+/* Every weight and a true italic of each font in shared/fonts.ts. */
+@import '@fontsource-variable/geist/wght.css';
+@import '@fontsource-variable/geist/wght-italic.css';
+@import '@fontsource-variable/inter/wght.css';
+@import '@fontsource-variable/inter/wght-italic.css';
+@import '@fontsource-variable/lora/wght.css';
+@import '@fontsource-variable/lora/wght-italic.css';
+@import '@fontsource-variable/nunito/wght.css';
+@import '@fontsource-variable/nunito/wght-italic.css';
+@import '@fontsource-variable/geist-mono/wght.css';
+@import '@fontsource-variable/geist-mono/wght-italic.css';
+@import '@fontsource-variable/jetbrains-mono/wght.css';
+@import '@fontsource-variable/jetbrains-mono/wght-italic.css';
+@import '@fontsource-variable/source-code-pro/wght.css';
+@import '@fontsource-variable/source-code-pro/wght-italic.css';
+
+/* Streamdown styles the Markdown of the agents with utilities of its own. */
+@source '../../node_modules/streamdown/dist/*.js';
+
+@custom-variant dark (&:is(.dark *));
+
+/* Always emitted: the CodeMirror theme reads some of these from JavaScript. */
+@theme static {
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  /* The curve shared by everything that moves; see also lib/motion.ts. */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  /* 6 badge, 8 button, 10 input, 14 card */
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+@theme inline {
+  --font-heading: var(--font-sans);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-destructive: var(--destructive);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-overlay: var(--overlay);
+
+  --shadow-xs: var(--elevation-1);
+  --shadow-lg: var(--elevation-2);
+  --shadow-xl: var(--elevation-3);
+}
+
+/* Neutral zinc with a single indigo accent; the same names in both themes. */
+:root {
+  color-scheme: light;
+  --radius: 0.625rem;
+
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --card: #ffffff;
+  --card-foreground: var(--foreground);
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+  --sidebar: #fafafa;
+  --primary: #18181b;
+  --primary-foreground: #fafafa;
+  --secondary: var(--muted);
+  --secondary-foreground: var(--foreground);
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #f4f4f5;
+  --accent-foreground: var(--foreground);
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: var(--brand);
+  --brand: #4f46e5;
+  --brand-soft: #eef2ff;
+  --success: #15803d;
+  --success-soft: #dcfce7;
+  --warning: #b45309;
+  --destructive: #dc2626;
+  --destructive-soft: #fee2e2;
+  --overlay: rgb(9 9 11 / 0.28);
+  --selection: color-mix(in oklab, var(--brand) 20%, transparent);
+  --highlight: #fde68a;
+
+  --elevation-1: 0 1px 2px rgb(0 0 0 / 0.05);
+  --elevation-2: 0 12px 32px -8px rgb(0 0 0 / 0.12), 0 2px 6px rgb(0 0 0 / 0.04);
+  --elevation-3: 0 24px 64px -12px rgb(0 0 0 / 0.25), 0 4px 12px rgb(0 0 0 / 0.06);
+
+  --tok-keyword: #7c3aed;
+  --tok-string: #15803d;
+  --tok-number: #b45309;
+  --tok-type: #0e7490;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --background: #09090b;
+  --foreground: #fafafa;
+  --card: #111113;
+  --sidebar: #0f0f11;
+  --primary: #fafafa;
+  --primary-foreground: #18181b;
+  --muted: #1c1c1f;
+  --muted-foreground: #a1a1aa;
+  --accent: #1f1f23;
+  --border: #27272a;
+  --input: #2e2e33;
+  --brand: #a5b4fc;
+  --brand-soft: #1e1b4b;
+  --success: #4ade80;
+  --success-soft: #052e16;
+  --warning: #fbbf24;
+  --destructive: #f87171;
+  --destructive-soft: #450a0a;
+  --overlay: rgb(0 0 0 / 0.6);
+  --selection: color-mix(in oklab, var(--brand) 28%, transparent);
+  --highlight: #5c4a12;
+
+  --elevation-1: 0 1px 2px rgb(0 0 0 / 0.4);
+  --elevation-2: 0 16px 40px -8px rgb(0 0 0 / 0.6);
+  --elevation-3: 0 24px 64px -12px rgb(0 0 0 / 0.8);
+
+  --tok-keyword: #c4b5fd;
+  --tok-string: #86efac;
+  --tok-number: #fcd34d;
+  --tok-type: #67e8f9;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  /* The visible height on phones, whose toolbars come and go. */
+  #root {
+    height: 100dvh;
+  }
+
+  body {
+    @apply overflow-hidden bg-background font-sans text-sm text-foreground antialiased;
+  }
+
+  ::selection {
+    background-color: var(--selection);
+  }
+}
+
+/*
+ * Set on <html> while the theme changes, so every surface cross-fades instead
+ * of snapping. Left unlayered to win over the transitions of single utilities.
+ */
+.theme-switching,
+.theme-switching * {
+  transition:
+    background-color 0.3s var(--ease-out-expo),
+    border-color 0.3s var(--ease-out-expo),
+    color 0.3s var(--ease-out-expo),
+    box-shadow 0.3s;
+}
+
+/* With reduced motion, popups keep their fade but no longer zoom or slide. */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    --tw-enter-scale: 1;
+    --tw-exit-scale: 1;
+    --tw-enter-translate-x: 0;
+    --tw-enter-translate-y: 0;
+    --tw-exit-translate-x: 0;
+    --tw-exit-translate-y: 0;
+  }
+}
+
+@layer components {
+  /* Code tokens, as classed by the editor's highlighter. */
+  .tok-keyword {
+    color: var(--tok-keyword);
+  }
+
+  .tok-string,
+  .tok-string2 {
+    color: var(--tok-string);
+  }
+
+  .tok-number,
+  .tok-bool,
+  .tok-atom {
+    color: var(--tok-number);
+  }
+
+  .tok-typeName,
+  .tok-className,
+  .tok-namespace {
+    color: var(--tok-type);
+  }
+
+  .tok-propertyName {
+    color: var(--brand);
+  }
+
+  .tok-comment,
+  .tok-meta {
+    color: var(--muted-foreground);
+  }
+
+  .tok-comment {
+    font-style: italic;
+  }
+}
