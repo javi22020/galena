@@ -11,7 +11,7 @@ npx galena [vault-folder] [--port <port>] [--no-open]
 Galena starts a server on `127.0.0.1`, opens the app in your browser and stops
 with Ctrl+C. Without a folder it shows a home screen with your recent vaults
 and a folder browser to pick another.
-It needs Node 22.22 or newer; nothing else is installed. Version control uses
+It needs Node 22.22+, 24.11+ or 26+; nothing else is installed. Version control uses
 the Git already on your machine, if there is one.
 
 ## What it does
@@ -22,29 +22,36 @@ the Git already on your machine, if there is one.
   autocompletion (Ctrl/Cmd+click to follow), tabs, autosave and backlinks.
   Links, tables and LaTeX math (`$…$`, `$$…$$`) are rendered in place and
   turn back into source under the cursor; fenced code is syntax-highlighted.
-  Headings are written with `#`: a line of `=` or `-` under a paragraph does
-  not make it a heading, so a list started right below one stays a list.
+  Tab and Shift+Tab nest and unnest list items, keeping numbered lists
+  counting. Font size, fonts for headings, text and code, and line wrapping
+  are set in Settings; a light or dark theme, from the theme toggle.
 - **Explorer, search and graph.** File tree with create, rename, drag-and-drop
-  move and delete; a quick switcher (Ctrl/Cmd+K) with full-text search; a graph
-  of notes and links. All of them follow changes made outside the app.
-- **Agents.** Pick an agent from the ACP registry and chat with it about your
-  vault: streaming answers, tool calls, plans and permission requests. Mention
-  notes with `@` or attach the open note or the current selection. Pick the
-  model, the effort and whatever else the agent offers; new chats keep the last
-  model and effort chosen for each agent.
+  move and delete (deleted notes go to `.galena/trash`, so they can be
+  recovered); a quick switcher (Ctrl/Cmd+K) with full-text search and commands;
+  a graph of notes and links, filtered by folder or tag. All of them follow
+  changes made outside the app.
+- **Agents.** Enable agents from the ACP registry, or add your own with the
+  command that starts it in ACP mode, and chat with them about your vault:
+  streaming answers, tool calls, plans and permission requests. Mention notes
+  with `@`, attach the open note, or send the current selection with
+  Ctrl/Cmd+L. Pick the model, the effort and whatever else the agent offers;
+  new chats keep the last model and effort chosen for each agent. Permission
+  requests can be asked every time, always allowed or always rejected.
 - **Reviewable edits.** Files an agent writes through ACP are recorded as
   changes you can accept or reject, per file or all at once.
-- **Git.** A vault that is a Git repository gets a Git tab next to the files:
+- **Git.** A Git tab next to the files can initialize a repository for the
+  vault, or use the one the vault folder is part of, and add a remote. It shows
   what changed since the last commit, with diffs; one Sync button that commits,
-  merges what the remote has and pushes; and a view to resolve the conflicts a
-  merge leaves, one by one. Changes are committed whole, and an agent's changes
-  have to be reviewed before they can be. `.galena/` stays out of the
-  repository unless you say otherwise in Settings; its trash always does.
+  merges what the remote has and pushes (just Commit while there is no remote);
+  and a view to resolve the conflicts a merge leaves, one by one. Changes are
+  committed whole, and an agent's changes have to be reviewed before they can
+  be. `.galena/` stays out of the repository unless you say otherwise in
+  Settings; its trash always does.
 
 Galena stores no credentials: each agent uses the login or API key of its own
 CLI, and Git uses the credential helper or SSH keys it is already set up with.
-Agents published as npm or PyPI packages run through `npx`/`uvx`; the rest
-need a launch command, set in Settings.
+Agents published as npm or PyPI packages run through `npx`/`uvx`; the rest,
+and the ones you add yourself, need a launch command, set in Settings.
 
 ## Development
 
@@ -56,12 +63,16 @@ pnpm typecheck
 pnpm test                                # node --test, no extra tooling
 ```
 
+In PowerShell, set the vault with `$env:GALENA_VAULT = 'C:\path\to\a\vault'`
+before `pnpm dev`. Without it, the dev server opens on the home screen.
+
 ## Layout
 
 | Path                      | What lives there                                            |
 | ------------------------- | ----------------------------------------------------------- |
 | `src/cli.ts`              | The `galena` command (citty)                                |
 | `src/server/app.ts`       | HTTP API, WebSocket and request security (Hono)             |
+| `src/server/dev.ts`       | Development entry for Vite; reads `GALENA_VAULT`            |
 | `src/server/workspace.ts` | An open vault: file watcher, settings, agent access rules   |
 | `src/server/vault.ts`     | File access confined to the vault                           |
 | `src/server/folders.ts`   | Folder listings for choosing a vault                        |
