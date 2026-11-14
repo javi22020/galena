@@ -277,6 +277,8 @@ const theme = EditorView.theme({
     borderRadius: 'var(--radius-sm)',
   },
   '.cm-searchMatch': { backgroundColor: 'var(--highlight)' },
+  // The one the selection is on, where the arrows and Enter lead.
+  '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: 'var(--highlight-current)' },
   '.cm-tooltip': { ...popup, overflow: 'hidden' },
   '.cm-tooltip.cm-tooltip-autocomplete > ul': { fontFamily: 'var(--font-sans)', padding: '4px' },
   '.cm-tooltip-autocomplete ul li': { borderRadius: 'var(--radius-sm)', padding: '2px 8px' },

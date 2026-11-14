@@ -103,6 +103,8 @@
   --overlay: rgb(9 9 11 / 0.28);
   --selection: color-mix(in oklab, var(--brand) 20%, transparent);
   --highlight: #fde68a;
+  /* The search match the selection is on: darker than the others, and orange. */
+  --highlight-current: #fb923c;
 
   --elevation-1: 0 1px 2px rgb(0 0 0 / 0.05);
   --elevation-2: 0 12px 32px -8px rgb(0 0 0 / 0.12), 0 2px 6px rgb(0 0 0 / 0.04);
@@ -138,6 +140,8 @@
   --overlay: rgb(0 0 0 / 0.6);
   --selection: color-mix(in oklab, var(--brand) 28%, transparent);
   --highlight: #5c4a12;
+  /* Lighter than the others here, so it stands out against the dark ones. */
+  --highlight-current: #c2410c;
 
   --elevation-1: 0 1px 2px rgb(0 0 0 / 0.4);
   --elevation-2: 0 16px 40px -8px rgb(0 0 0 / 0.6);
