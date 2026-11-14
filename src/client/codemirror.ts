@@ -24,6 +24,7 @@ import { minimalSetup } from 'codemirror'
 import { noteName } from '../shared/links'
 import { indentListItems, outdentListItems } from './lists'
 import { livePreview } from './preview'
+import { createSearchPanel } from './search-panel'
 import { addToChatButton, type PickedText } from './selection'
 import { useStore } from './store'
 import { mathSyntax, noSetextHeadings, wikilinkSyntax } from './syntax'
@@ -44,7 +45,7 @@ export function noteExtensions(
     lineWrap.of(EditorView.lineWrapping),
     closeBrackets(),
     autocompletion({ override: [completeWikilink], icons: false }),
-    search({ top: true }),
+    search({ top: true, createPanel: createSearchPanel }),
     keymap.of([
       ...closeBracketsKeymap,
       ...searchKeymap,
@@ -198,7 +199,13 @@ const popup = {
 // The editor has no height of its own: it grows with the note and scrolls
 // with the column around it (see components/Editor.tsx).
 const theme = EditorView.theme({
-  '&': { color: 'var(--foreground)', fontSize: 'var(--editor-font-size)' },
+  '&': {
+    color: 'var(--foreground)',
+    fontSize: 'var(--editor-font-size)',
+    // CodeMirror stacks its layers with z-indexes up to 500 (its panels have 300).
+    // Kept inside the editor, they stay under the app's tooltips, menus and dialogs.
+    isolation: 'isolate',
+  },
   '&.cm-focused': { outline: 'none' },
   '.cm-scroller': { fontFamily: textFont, lineHeight: '1.75' },
   '.cm-content': { padding: '0', minHeight: '40vh', caretColor: 'var(--brand)' },
@@ -258,9 +265,8 @@ const theme = EditorView.theme({
     borderRadius: 'var(--radius-sm)',
     padding: '1px 4px',
   },
-  // The search panel floats over the top of the note while it scrolls.
+  // The search panel (search-panel.tsx) floats over the top of the note while it scrolls.
   '.cm-panels.cm-panels-top': { ...popup, top: '12px', marginBottom: '12px', fontSize: '13px' },
-  '.cm-search': { padding: '8px 10px' },
   '.cm-textfield, .cm-button': {
     fontSize: '12px',
     padding: '3px 8px',

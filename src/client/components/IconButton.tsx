@@ -1,5 +1,6 @@
 import type { ComponentProps } from 'react'
 import { Button } from '@/components/ui/button'
+import { Kbd } from '@/components/ui/kbd'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
@@ -8,10 +9,12 @@ interface IconButtonProps extends ComponentProps<typeof Button> {
   label: string
   /** For buttons that toggle something: whether it is on. */
   active?: boolean
+  /** Its keyboard shortcut, shown in the tooltip. */
+  keys?: string
 }
 
 /** A quiet square button holding just an icon. */
-export function IconButton({ label, active, className, ...props }: IconButtonProps) {
+export function IconButton({ label, active, keys, className, ...props }: IconButtonProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -30,7 +33,10 @@ export function IconButton({ label, active, className, ...props }: IconButtonPro
           {...props}
         />
       </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
+      <TooltipContent>
+        {label}
+        {keys && <Kbd>{keys}</Kbd>}
+      </TooltipContent>
     </Tooltip>
   )
 }
