@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
 import { codeFonts, textFonts } from '../../shared/fonts'
 import type { Settings as SettingsData } from '../../shared/types'
 import { saveSettings, useStore } from '../store'
@@ -167,18 +166,6 @@ function SettingsBody() {
             </SelectContent>
           </Select>
         </Field>
-        <label className="flex flex-col gap-2">
-          Folders agents cannot read or write (one per line)
-          <Textarea
-            key={settings.excludedFolders.join('\n')}
-            defaultValue={settings.excludedFolders.join('\n')}
-            onBlur={(e) => update({ excludedFolders: e.target.value.split('\n') })}
-            placeholder="Private"
-            rows={3}
-            spellCheck={false}
-            className="font-mono"
-          />
-        </label>
       </Section>
 
       <Section

@@ -6,7 +6,7 @@ import { Changes } from './changes'
 import { Git } from './git'
 import { NoteIndex } from './notes'
 import { Sessions } from './sessions'
-import { HttpError, readJson, writeJson } from './util'
+import { readJson, writeJson } from './util'
 import { Vault } from './vault'
 
 export type Broadcast = (event: ServerEvent) => void
@@ -58,15 +58,6 @@ export class Workspace {
     return this.settings
   }
 
-  /** Vault-relative path of a file an agent asked for, if it may access it. */
-  agentPath(abs: string): string {
-    const rel = this.vault.relative(abs)
-    if (this.settings.excludedFolders.some((dir) => rel === dir || rel.startsWith(`${dir}/`))) {
-      throw new HttpError(403, `Excluded from agents: ${rel}`)
-    }
-    return rel
-  }
-
   /** Keeps the index in sync with the disk and tells the browser about changes. */
   private watch(): void {
     const { root } = this.vault
@@ -107,7 +98,6 @@ function normalize(input: unknown): Settings {
     const command = typeof agent?.command === 'string' ? agent.command.trim() : ''
     agents[id] = command ? { command } : {}
   }
-  const folders = Array.isArray(raw.excludedFolders) ? raw.excludedFolders : []
   const fontSize = Number(raw.editor?.fontSize) || defaultSettings.editor.fontSize
   const fonts = { ...defaultSettings.editor.fonts, ...raw.editor?.fonts }
   const fallback = defaultSettings.editor.fonts
@@ -116,10 +106,6 @@ function normalize(input: unknown): Settings {
     defaultPermission: (['ask', 'allow', 'reject'] as const).includes(raw.defaultPermission!)
       ? raw.defaultPermission!
       : 'ask',
-    excludedFolders: folders
-      .filter((folder) => typeof folder === 'string')
-      .map((folder) => folder.trim().replace(/^\/+|\/+$/g, ''))
-      .filter(Boolean),
     editor: {
       fontSize: Math.min(28, Math.max(10, fontSize)),
       lineWrap: raw.editor?.lineWrap !== false,

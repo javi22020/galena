@@ -106,8 +106,10 @@ kept until the vault is closed. The chats with an agent share its process, so
 if the process ends, all of its chats stop. A chat left alone for five minutes
 has its ACP session closed to free the agent's memory, if the agent supports
 it, and resumed when used again. The file access Galena gives them over ACP is
-limited to the vault, minus hidden folders and the folders you exclude in
-Settings.
+limited to the vault, minus folders and files whose name starts with a dot,
+such as `.git` and `.galena`. An agent's own tools, such as its
+shell or search, do not go through Galena, so they reach whatever the agent's
+process can.
 
 Git is run without a shell, with fixed arguments and paths taken literally. A
 remote added from the app cannot be an option or a `transport::` helper, and

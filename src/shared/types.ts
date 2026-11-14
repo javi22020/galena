@@ -37,8 +37,6 @@ export interface Settings {
   agents: Record<string, { command?: string }>
   /** How agent permission requests are answered. */
   defaultPermission: 'ask' | 'allow' | 'reject'
-  /** Folders the agent may neither read nor write. */
-  excludedFolders: string[]
   editor: {
     fontSize: number
     lineWrap: boolean
@@ -55,7 +53,6 @@ export interface Settings {
 export const defaultSettings: Settings = {
   agents: { 'claude-acp': {}, 'codex-acp': {} },
   defaultPermission: 'ask',
-  excludedFolders: [],
   editor: { fontSize: 15, lineWrap: true, fonts: { heading: 'geist', text: 'geist', code: 'geist-mono' } },
   git: { excludeGalena: true, parentRepo: false },
 }

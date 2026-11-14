@@ -377,7 +377,7 @@ export class Session {
 
   async readFile(request: ReadTextFileRequest): Promise<ReadTextFileResponse> {
     const { path: abs, line, limit } = request
-    const content = await this.workspace.vault.read(this.workspace.agentPath(abs))
+    const content = await this.workspace.vault.read(this.workspace.vault.relative(abs))
     if (line == null && limit == null) return { content }
     const start = (line ?? 1) - 1
     const end = limit == null ? undefined : start + limit
@@ -386,7 +386,7 @@ export class Session {
 
   /** Agent writes are recorded as reviewable changes. */
   async writeFile({ path: abs, content }: WriteTextFileRequest): Promise<void> {
-    await this.workspace.changes.write(this.workspace.agentPath(abs), content, this.meta.id)
+    await this.workspace.changes.write(this.workspace.vault.relative(abs), content, this.meta.id)
   }
 
   /**
