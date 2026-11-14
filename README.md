@@ -1,5 +1,7 @@
 # Galena
 
+![Galena icon](.github/logo.svg)
+
 A local Markdown notes editor in the spirit of Obsidian, with coding agents
 (Claude, Codex, Gemini CLI and others) built in through the
 [Agent Client Protocol](https://agentclientprotocol.com).
