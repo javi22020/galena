@@ -13,8 +13,17 @@ import {
   type SearchQuery,
 } from '@codemirror/search'
 import { runScopeHandlers, type EditorView } from '@codemirror/view'
-import { ArrowDown, ArrowUp, ChevronRight, X } from 'lucide-react'
-import { useState, useSyncExternalStore, type ComponentProps, type KeyboardEvent, type ReactNode } from 'react'
+import {
+  ArrowDown,
+  ArrowUp,
+  CaseSensitive,
+  ChevronRight,
+  Regex,
+  WholeWord,
+  X,
+  type LucideIcon,
+} from 'lucide-react'
+import { useState, useSyncExternalStore, type ComponentProps, type KeyboardEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from '@/components/ui/input-group'
 import { Kbd } from '@/components/ui/kbd'
@@ -34,10 +43,10 @@ export interface Snapshot {
 type Option = 'caseSensitive' | 'wholeWord' | 'regexp'
 
 /** The query's options, toggled with Alt and their key. */
-const options: { option: Option; name: string; key: string; glyph: ReactNode }[] = [
-  { option: 'caseSensitive', name: 'Match case', key: 'C', glyph: 'Aa' },
-  { option: 'wholeWord', name: 'Whole word', key: 'W', glyph: <span className="underline underline-offset-2">ab</span> },
-  { option: 'regexp', name: 'Regular expression', key: 'R', glyph: '.*' },
+const options: { option: Option; name: string; key: string; Icon: LucideIcon }[] = [
+  { option: 'caseSensitive', name: 'Match case', key: 'C', Icon: CaseSensitive },
+  { option: 'wholeWord', name: 'Whole word', key: 'W', Icon: WholeWord },
+  { option: 'regexp', name: 'Regular expression', key: 'R', Icon: Regex },
 ]
 
 interface SearchPanelProps {
@@ -118,17 +127,17 @@ export function SearchPanel({ view, store }: SearchPanelProps) {
               {label.text}
             </InputGroupText>
           )}
-          {options.map(({ option, name, key, glyph }) => (
+          {options.map(({ option, name, key, Icon }) => (
             <IconButton
               key={option}
               label={name}
               keys={altShortcut(key)}
               size="icon-xs"
               active={query[option]}
-              className="font-mono text-xs aria-pressed:bg-brand-soft aria-pressed:text-brand aria-pressed:hover:bg-brand-soft"
+              className="aria-pressed:bg-brand-soft aria-pressed:text-brand aria-pressed:hover:bg-brand-soft"
               onClick={() => toggle(option)}
             >
-              {glyph}
+              <Icon className="size-3.5" />
             </IconButton>
           ))}
         </InputGroupAddon>
