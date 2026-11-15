@@ -2,7 +2,7 @@ import { useState, type FormEvent, type ReactNode } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { codeFonts, textFonts } from '../../shared/fonts'
@@ -160,8 +160,10 @@ function SettingsBody() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ask">Ask me</SelectItem>
-              <SelectItem value="allow">Always allow</SelectItem>
+              <SelectGroup>
+                <SelectItem value="ask">Ask me</SelectItem>
+                <SelectItem value="allow">Always allow</SelectItem>
+              </SelectGroup>
             </SelectContent>
           </Select>
         </Field>
@@ -267,11 +269,13 @@ function FontSelect<Id extends string>({ fonts, value, onChange }: FontSelectPro
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {(Object.keys(fonts) as Id[]).map((id) => (
-          <SelectItem key={id} value={id} style={{ fontFamily: fonts[id].family }}>
-            {fonts[id].name}
-          </SelectItem>
-        ))}
+        <SelectGroup>
+          {(Object.keys(fonts) as Id[]).map((id) => (
+            <SelectItem key={id} value={id} style={{ fontFamily: fonts[id].family }}>
+              {fonts[id].name}
+            </SelectItem>
+          ))}
+        </SelectGroup>
       </SelectContent>
     </Select>
   )
