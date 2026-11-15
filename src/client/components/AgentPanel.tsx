@@ -38,6 +38,7 @@ import type { SessionMeta } from '../../shared/types'
 import { api } from '../api'
 import { newChat, pickAgent, selectChat, showError, useStore } from '../store'
 import { Composer } from './Composer'
+import { ModelPicker, modelOption } from './ConfigOptions'
 import { ConfirmDialog } from './ConfirmDialog'
 import { IconButton } from './IconButton'
 import { Picker } from './Picker'
@@ -53,6 +54,7 @@ export function AgentPanel() {
   const registry = useStore((s) => s.agents)
   const [deleting, setDeleting] = useState(false)
   const session = sessions.find((s) => s.id === chatId)
+  const model = session && modelOption(session)
   const running = session?.status === 'running'
   // Empty chats are not history: there is one per agent, and it is the one "New chat" shows.
   const history = sessions.filter((s) => !s.draft)
@@ -118,14 +120,23 @@ export function AgentPanel() {
         </IconButton>
       </header>
 
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1">
+        {/*
+          The model of the chat, floating over the top of it, once the agent says which it offers.
+          The chat leaves room for it either way, so it does not move when the model comes or goes.
+        */}
+        {session && model && (
+          <div className="absolute top-3 left-1/2 z-10 -translate-x-1/2 rounded-full border bg-background shadow-xs">
+            <ModelPicker session={session} option={model} />
+          </div>
+        )}
         {chat ? (
           // Follows the reply as it streams, unless the user has scrolled up
           // to read. A saved chat opens at its last question.
           <MessageScrollerProvider key={chatId ?? 'new'} autoScroll defaultScrollPosition="last-anchor">
             <MessageScroller>
               <MessageScrollerViewport>
-                <MessageScrollerContent aria-busy={running} className="px-4 py-5">
+                <MessageScrollerContent aria-busy={running} className="px-4 pt-16 pb-5">
                   <Transcript chat={chat} sessionId={chatId} running={running} />
                   {!chat.items.length && (
                     <MessageScrollerItem className="m-auto">

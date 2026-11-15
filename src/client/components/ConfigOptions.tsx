@@ -21,24 +21,32 @@ import { api } from '../api'
 import { showError } from '../store'
 import { Picker, PickerItems, type PickerOption } from './Picker'
 
+/** The option of `category` that is a list to pick from, if the agent offers one. */
+function selectOf(session: SessionMeta, category: string): SelectOption | undefined {
+  return session.configOptions?.find((o): o is SelectOption => o.type === 'select' && o.category === category)
+}
+
+/** The model the agent offers for this chat, if it offers a choice of them. */
+export const modelOption = (session: SessionMeta) => selectOf(session, 'model')
+
+/** Asks the agent to change an option; what is shown changes once it accepts. */
+function change(session: SessionMeta, option: SessionConfigOption, value: string | boolean): void {
+  if (value !== option.currentValue) api.setConfig(session.id, option.id, value).catch(showError)
+}
+
 /**
- * The options the agent offers for this chat, as ACP describes them: the mode,
- * the model and the effort at hand, everything else in a menu. What is shown is
- * always what the server last reported, so a change appears once the agent
- * accepts it.
+ * The options the agent offers for this chat, as ACP describes them, but the
+ * model: the mode and the effort at hand, everything else in a menu. What is
+ * shown is always what the server last reported.
  */
 export function ConfigOptions({ session }: { session: SessionMeta }) {
-  const options = session.configOptions ?? []
-  const mode = options.find((o): o is SelectOption => o.type === 'select' && o.category === 'mode')
-  const model = options.find((o): o is SelectOption => o.type === 'select' && o.category === 'model')
-  const effort = options.find((o): o is SelectOption => o.type === 'select' && o.category === 'thought_level')
+  const mode = selectOf(session, 'mode')
+  const effort = selectOf(session, 'thought_level')
+  const model = modelOption(session)
   // ACP says to ignore options of an unknown type.
-  const atHand: SessionConfigOption[] = [mode, model, effort].filter((o) => o !== undefined)
-  const rest = options.filter((o) => !atHand.includes(o) && (o.type === 'select' || o.type === 'boolean'))
-
-  const change = (option: SessionConfigOption, value: string | boolean) => {
-    if (value !== option.currentValue) api.setConfig(session.id, option.id, value).catch(showError)
-  }
+  const rest = (session.configOptions ?? []).filter(
+    (o) => o !== mode && o !== model && o !== effort && (o.type === 'select' || o.type === 'boolean'),
+  )
 
   return (
     <>
@@ -49,10 +57,9 @@ export function ConfigOptions({ session }: { session: SessionMeta }) {
           size="xs"
           value={mode.currentValue}
           options={pickerOptions(mode)}
-          onChange={(value) => change(mode, value)}
+          onChange={(value) => change(session, mode, value)}
         />
       )}
-      {model && <ModelPicker option={model} onChange={(value) => change(model, value)} />}
       {effort && (
         <Picker
           label={effort.name}
@@ -60,10 +67,12 @@ export function ConfigOptions({ session }: { session: SessionMeta }) {
           size="xs"
           value={effort.currentValue}
           options={pickerOptions(effort)}
-          onChange={(value) => change(effort, value)}
+          onChange={(value) => change(session, effort, value)}
         />
       )}
-      {rest.length > 0 && <MoreOptions options={rest} onChange={change} />}
+      {rest.length > 0 && (
+        <MoreOptions options={rest} onChange={(option, value) => change(session, option, value)} />
+      )}
     </>
   )
 }
@@ -79,8 +88,8 @@ function pickerOptions(option: SelectOption): PickerOption[] {
   )
 }
 
-/** The model, picked from a list that can be searched: some agents offer many. */
-function ModelPicker({ option, onChange }: { option: SelectOption; onChange: (value: string) => void }) {
+/** The model of the chat, picked from a list that can be searched: some agents offer many. */
+export function ModelPicker({ session, option }: { session: SessionMeta; option: SelectOption }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [index, setIndex] = useState(0)
@@ -99,7 +108,7 @@ function ModelPicker({ option, onChange }: { option: SelectOption; onChange: (va
   }
   const pick = (value: string) => {
     toggle(false)
-    onChange(value)
+    change(session, option, value)
   }
   const onKeyDown = (event: KeyboardEvent) => {
     const move = { ArrowDown: 1, ArrowUp: -1 }[event.key]
@@ -115,12 +124,12 @@ function ModelPicker({ option, onChange }: { option: SelectOption; onChange: (va
   return (
     <Popover open={open} onOpenChange={toggle}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="xs" aria-label={option.name} className="min-w-0 max-w-40 gap-2 text-[13px]">
+        <Button variant="ghost" size="xs" aria-label={option.name} className="min-w-0 max-w-40 gap-2 rounded-full text-[13px]">
           <span className="truncate">{current?.label ?? option.currentValue}</span>
           <ChevronDown className="text-muted-foreground" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 gap-1 p-1">
+      <PopoverContent className="w-72 gap-1 p-1">
         <Input
           autoFocus
           value={query}

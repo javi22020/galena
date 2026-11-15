@@ -185,9 +185,16 @@ export function Composer({ session }: { session: SessionMeta | undefined }) {
           className="max-h-[40vh] min-h-14 px-3"
         />
 
-        {/* One line: the open note takes what room is left and is cut short first. */}
-        <InputGroupAddon align="block-end" className="gap-1">
-          <div className="flex min-w-0 flex-1 items-center">
+        {/*
+          One line: the open note on the left, cut short to fit, and on the
+          right the agent's options and the button to send. The options keep
+          their size and move onto another line when they do not fit, before
+          the note gets narrower than its icon and a few letters; the button
+          stays at the end of the last line.
+        */}
+        <InputGroupAddon align="block-end" className="items-end gap-1">
+          {/* As tall as the button to send, as each option is with its margin, so they line up. */}
+          <div className={cn('flex h-8 min-w-0 flex-1 items-center', activePath !== undefined && 'min-w-20')}>
             {activePath !== undefined && (
               <OpenNote
                 path={activePath}
@@ -196,29 +203,29 @@ export function Composer({ session }: { session: SessionMeta | undefined }) {
               />
             )}
           </div>
-          <div className="flex min-w-0 items-center justify-end gap-1">
+          <div className="flex min-w-0 flex-wrap justify-end gap-x-1 *:my-1">
             {session && <ConfigOptions session={session} />}
-            {running ? (
-              <InputGroupButton
-                aria-label="Stop"
-                variant="outline"
-                size="icon-sm"
-                onClick={() => api.cancel(session.id).catch(showError)}
-              >
-                <Square className="size-3 fill-current" />
-              </InputGroupButton>
-            ) : (
-              <InputGroupButton
-                type="submit"
-                aria-label="Send"
-                variant="default"
-                size="icon-sm"
-                disabled={!text.trim() || sending || disabled}
-              >
-                <ArrowUp strokeWidth={2.2} />
-              </InputGroupButton>
-            )}
           </div>
+          {running ? (
+            <InputGroupButton
+              aria-label="Stop"
+              variant="outline"
+              size="icon-sm"
+              onClick={() => api.cancel(session.id).catch(showError)}
+            >
+              <Square className="size-3 fill-current" />
+            </InputGroupButton>
+          ) : (
+            <InputGroupButton
+              type="submit"
+              aria-label="Send"
+              variant="default"
+              size="icon-sm"
+              disabled={!text.trim() || sending || disabled}
+            >
+              <ArrowUp strokeWidth={2.2} />
+            </InputGroupButton>
+          )}
         </InputGroupAddon>
       </InputGroup>
     </form>
