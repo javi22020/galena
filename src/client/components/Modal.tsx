@@ -1,5 +1,7 @@
+import { XIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { setModal, useStore, type ModalName } from '../store'
 
@@ -21,11 +23,22 @@ export function Modal({ name, title, bare, className, children }: ModalProps) {
     <Dialog open={open} onOpenChange={(next) => !next && setModal(null)}>
       <DialogContent
         aria-describedby={undefined}
-        showCloseButton={!bare}
+        showCloseButton={false}
         className={cn('flex max-h-[calc(100%-4rem)] flex-col gap-0 overflow-hidden p-0', className)}
       >
-        <DialogHeader className={bare ? 'sr-only' : 'border-b px-4 py-3.5'}>
+        {/* The close button sits in the header's row, so it stays centred in it. */}
+        <DialogHeader
+          className={bare ? 'sr-only' : 'flex-row items-center justify-between border-b py-2 pr-2 pl-4'}
+        >
           <DialogTitle>{title}</DialogTitle>
+          {!bare && (
+            <DialogClose asChild>
+              <Button variant="ghost" size="icon-sm" className="bg-secondary">
+                <XIcon />
+                <span className="sr-only">Close</span>
+              </Button>
+            </DialogClose>
+          )}
         </DialogHeader>
         {children}
       </DialogContent>

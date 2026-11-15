@@ -145,6 +145,8 @@ export function renderGraph(canvas: HTMLCanvasElement, graph: Graph, onOpen: (pa
     pointers.set(event.pointerId, point(event))
     if (pointers.size === 1) {
       drag = { node: nodeAt(event), start: point(event), moved: false }
+      // On a node, which a click opens, the hand closes only once it is dragged.
+      if (!drag.node) canvas.style.cursor = 'grabbing'
     } else {
       // A second finger turns the drag into a pinch; any finger after that
       // starts it again from where the fingers are.
@@ -172,6 +174,7 @@ export function renderGraph(canvas: HTMLCanvasElement, graph: Graph, onOpen: (pa
       const slop = event.pointerType === 'mouse' ? 3 : 8
       drag.moved ||= Math.hypot(event.clientX - drag.start.clientX, event.clientY - drag.start.clientY) > slop
       if (!drag.moved) return
+      canvas.style.cursor = 'grabbing'
       if (drag.node) {
         Object.assign(drag.node, { fx: locate(event).x, fy: locate(event).y })
         simulation.alphaTarget(0.3).restart()
@@ -195,6 +198,7 @@ export function renderGraph(canvas: HTMLCanvasElement, graph: Graph, onOpen: (pa
     }
     if (drag?.node && !drag.moved && event.type === 'pointerup') onOpen(drag.node.path)
     release()
+    canvas.style.cursor = nodeAt(event) ? 'pointer' : 'grab'
   }
 
   function onWheel(event: WheelEvent): void {

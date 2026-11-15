@@ -275,7 +275,9 @@ function SidePanel({ side, open, overlay, covered, width, onResize, children }: 
         <motion.div
           aria-hidden="true"
           className="fixed inset-0 z-40 bg-overlay"
-          style={{ pointerEvents: open ? 'auto' : 'none' }}
+          // Inherited when open, so a menu that blocks the body blocks this too
+          // and the tap that opened it does not land here and close the panel.
+          style={{ pointerEvents: open ? undefined : 'none' }}
           initial={false}
           animate={{ opacity: open ? 1 : 0 }}
           transition={smooth}
