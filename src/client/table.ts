@@ -36,7 +36,7 @@ export function renderTable(source: string): HTMLElement {
     } else {
       const header = row.name === 'TableHeader'
       const tr = element.appendChild(document.createElement('tr'))
-      cells(row).forEach((cell, column) => {
+      cells(row).forEach((cell) => {
         const td = tr.appendChild(document.createElement(header ? 'th' : 'td'))
         td.dataset.offset = String(cell.to)
         if (cell.node) renderInline(td, cell.node, source, cell.from, cell.to)

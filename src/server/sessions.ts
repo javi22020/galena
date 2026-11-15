@@ -558,7 +558,7 @@ export class Session {
   }
 
   private cancelPermissions(): void {
-    for (const id of [...this.waiting.keys()]) this.answerPermission(id, null)
+    for (const id of this.waiting.keys()) this.answerPermission(id, null)
   }
 
   private emit(event: ChatEvent): void {

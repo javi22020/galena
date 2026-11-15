@@ -80,4 +80,5 @@ function fail(message: string): never {
   process.exit(1)
 }
 
-runMain(main)
+// Not awaited: it reports a failure itself, and exits.
+void runMain(main)

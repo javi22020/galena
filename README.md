@@ -61,6 +61,7 @@ and the ones you add yourself, need a launch command, set in Settings.
 pnpm install
 GALENA_VAULT=/path/to/a/vault pnpm dev   # Vite + the API, with hot reload
 pnpm build                               # dist/cli.mjs and dist/client
+pnpm lint                                # Oxlint
 pnpm typecheck
 pnpm test                                # Vitest, unit tests only
 ```

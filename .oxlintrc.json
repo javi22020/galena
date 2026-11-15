@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "react", "vitest"],
+  // Rules that need the types, such as a promise nobody waits for; run by oxlint-tsgolint.
+  "options": { "typeAware": true },
+  // Code that is wrong or useless fails the lint; matters of style are left alone.
+  "categories": { "correctness": "error" },
+  "rules": {
+    // `({ mention: _, ...ref }) => ref` is how a property is left out of a copy.
+    "no-unused-vars": ["error", { "ignoreRestSiblings": true }],
+    // The second argument is the message Vitest shows when the check fails.
+    "vitest/valid-expect": ["error", { "maxArgs": 2 }],
+    // A hook called in a branch or a loop; not among the rules above, though it is always a bug.
+    "react/hooks": "error",
+    // Worth a look, one by one, but not required: an async function where nobody waits for it,
+    // a `switch` that leaves cases out, and what a library has marked as deprecated.
+    "typescript/no-misused-promises": "warn",
+    "typescript/switch-exhaustiveness-check": ["warn", { "considerDefaultExhaustiveForUnions": true }],
+    "typescript/no-deprecated": "warn",
+    // Shown but not required: the few effects that set state say why they do.
+    "react/set-state-in-effect": "warn"
+  }
+}

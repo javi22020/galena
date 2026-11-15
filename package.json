@@ -24,6 +24,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsdown && vite build",
+    "lint": "oxlint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "prepack": "pnpm run build",
@@ -76,6 +77,8 @@
     "katex": "^0.19.1",
     "lucide-react": "^1.72.0",
     "motion": "^14.12.0",
+    "oxlint": "^1.93.0",
+    "oxlint-tsgolint": "^7.0.2007",
     "radix-ui": "^1.8.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
