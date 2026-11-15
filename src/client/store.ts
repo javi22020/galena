@@ -191,8 +191,8 @@ function onServerEvent(event: ServerEvent): void {
       for (const listener of fsListeners) listener(event)
       // A burst of file events (a git checkout, say) refreshes the tree once.
       clearTimeout(treeTimer)
-      treeTimer = window.setTimeout(async () => {
-        set({ entries: await api.tree(), fsTick: get().fsTick + 1 })
+      treeTimer = window.setTimeout(() => {
+        api.tree().then((entries) => set({ entries, fsTick: get().fsTick + 1 }), showError)
       }, 80)
       break
     case 'changes':
