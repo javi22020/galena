@@ -103,9 +103,8 @@ function normalize(input: unknown): Settings {
   const fallback = defaultSettings.editor.fonts
   return {
     agents,
-    defaultPermission: (['ask', 'allow', 'reject'] as const).includes(raw.defaultPermission!)
-      ? raw.defaultPermission!
-      : 'ask',
+    // Anything else, such as the "reject" there used to be, is asked about.
+    defaultPermission: raw.defaultPermission === 'allow' ? 'allow' : 'ask',
     editor: {
       fontSize: Math.min(28, Math.max(10, fontSize)),
       lineWrap: raw.editor?.lineWrap !== false,

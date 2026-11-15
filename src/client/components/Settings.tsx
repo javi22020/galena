@@ -151,7 +151,7 @@ function SettingsBody() {
       </Section>
 
       <Section title="Permissions">
-        <Field label="When an agent asks for permission">
+        <Field label="When an agent edits or asks">
           <Select
             value={settings.defaultPermission}
             onValueChange={(value: SettingsData['defaultPermission']) => update({ defaultPermission: value })}
@@ -162,7 +162,6 @@ function SettingsBody() {
             <SelectContent>
               <SelectItem value="ask">Ask me</SelectItem>
               <SelectItem value="allow">Always allow</SelectItem>
-              <SelectItem value="reject">Always reject</SelectItem>
             </SelectContent>
           </Select>
         </Field>

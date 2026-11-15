@@ -35,8 +35,8 @@ export interface FolderListing {
 export interface Settings {
   /** Agents shown in the chat selector, keyed by registry id. */
   agents: Record<string, { command?: string }>
-  /** How agent permission requests are answered. */
-  defaultPermission: 'ask' | 'allow' | 'reject'
+  /** How agent permission requests, and agent writes, are answered. */
+  defaultPermission: 'ask' | 'allow'
   editor: {
     fontSize: number
     lineWrap: boolean
