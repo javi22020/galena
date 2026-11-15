@@ -1,7 +1,7 @@
 import type { PermissionOption } from '@agentclientprotocol/sdk'
 import { expect, test } from 'vitest'
 import type { ServerEvent, Settings } from '../shared/types'
-import { Session, type Sessions } from './sessions'
+import { Session, type ChatOwner } from './sessions'
 
 const NOTE = lines('one', 'two', 'three', 'four')
 
@@ -13,7 +13,7 @@ function lines(...text: string[]): string {
 function chat(defaultPermission: Settings['defaultPermission'] = 'ask') {
   const events: ServerEvent[] = []
   const written: string[] = []
-  const workspace = {
+  const workspace: ChatOwner['workspace'] = {
     settings: { defaultPermission },
     broadcast: (event: ServerEvent) => events.push(event),
     vault: {
@@ -22,11 +22,21 @@ function chat(defaultPermission: Settings['defaultPermission'] = 'ask') {
         return abs
       },
       read: async () => NOTE,
+      resolve: (rel: string) => rel,
+      root: 'vault',
     },
     changes: { write: async (rel: string) => void written.push(rel) },
   }
   const stored = { meta: { id: 'chat', agentId: 'agent', title: 'New chat', updatedAt: 0 }, items: [] }
-  const session = new Session({ workspace } as unknown as Sessions, stored, 'chat.json')
+  const owner: ChatOwner = {
+    workspace,
+    agent: async () => {
+      throw new Error('This chat has no agent')
+    },
+    remember: () => {},
+    retryAuth: () => {},
+  }
+  const session = new Session(owner, stored, 'chat.json')
   return { session, events, written }
 }
 

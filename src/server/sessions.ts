@@ -27,6 +27,7 @@ import type {
 import { AgentHost } from './agents'
 import { launchCommand } from './registry'
 import { configDir, errorMessage, HttpError, readJson, writeJson } from './util'
+import type { Vault } from './vault'
 import type { Workspace } from './workspace'
 
 const AUTH_REQUIRED = -32000
@@ -56,8 +57,20 @@ interface Stored {
   items: ChatItem[]
 }
 
+/** What a chat needs from whoever holds it: its agent, and the workspace it runs in. */
+export interface ChatOwner {
+  readonly workspace: Pick<Workspace, 'broadcast'> & {
+    settings: Pick<Workspace['settings'], 'defaultPermission'>
+    changes: Pick<Workspace['changes'], 'write'>
+    vault: Pick<Vault, 'read' | 'relative' | 'resolve' | 'root'>
+  }
+  agent(agentId: string): Promise<AgentHost>
+  remember(agentId: string, configId: string, value: string): void
+  retryAuth(host: AgentHost): void
+}
+
 /** All chat sessions of a vault, live or from history, and the agent processes they use. */
-export class Sessions {
+export class Sessions implements ChatOwner {
   private sessions = new Map<string, Session>()
   /** One process per agent, started on first use and kept until the vault closes. */
   private hosts = new Map<string, Promise<AgentHost>>()
@@ -222,7 +235,7 @@ export class Session {
   private idle?: NodeJS.Timeout
 
   constructor(
-    private owner: Sessions,
+    private owner: ChatOwner,
     stored: Stored,
     readonly file: string,
   ) {
@@ -232,7 +245,7 @@ export class Session {
     this.chosen = stored.chosen ?? {}
   }
 
-  private get workspace(): Workspace {
+  private get workspace(): ChatOwner['workspace'] {
     return this.owner.workspace
   }
 

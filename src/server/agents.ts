@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { Readable, Writable } from 'node:stream'
 import {
   client,
@@ -10,6 +10,8 @@ import {
   type AgentRequestParamsByMethod,
   type AgentRequestResponsesByMethod,
   type AuthMethod,
+  type ClientApp,
+  type ClientConnection,
   type ClientContext,
   type LoadSessionRequest,
   type LoadSessionResponse,
@@ -44,6 +46,51 @@ const TIMEOUTS = {
 type TimedMethod = keyof typeof TIMEOUTS
 
 /**
+ * How Galena reaches an agent: the process it started, or, in tests, an agent
+ * in this same process.
+ */
+export interface Transport {
+  /** Connects Galena's side of ACP to the agent. */
+  connect(app: ClientApp): ClientConnection
+  /** Rejects once the agent is gone, saying why. */
+  exited: Promise<never>
+  /** Ends the agent. */
+  stop(): void
+}
+
+/** Starts an agent process that speaks ACP over its stdin and stdout. */
+function spawnAgent(launch: Launch, cwd: string): Transport {
+  const proc = spawn(launch.command, launch.args, {
+    cwd,
+    env: { ...process.env, ...launch.env },
+    stdio: ['pipe', 'pipe', 'pipe'],
+    shell: process.platform === 'win32', // npx is a .cmd shim on Windows
+  })
+
+  let stderr = ''
+  proc.stderr.on('data', (chunk) => (stderr = (stderr + chunk).slice(-2000)))
+  const exited = new Promise<never>((_, reject) => {
+    proc.once('error', (error) => reject(new Error(`Could not run ${launch.command}: ${error.message}`)))
+    proc.once('exit', (code) => reject(new Error(`The agent exited (code ${code}). ${stderr.trim()}`)))
+  })
+
+  return {
+    connect: (app) =>
+      app.connect(
+        ndJsonStream(
+          Writable.toWeb(proc.stdin) as WritableStream<Uint8Array>,
+          Readable.toWeb(proc.stdout) as ReadableStream<Uint8Array>,
+        ),
+      ),
+    exited,
+    stop() {
+      proc.stdin.end()
+      proc.kill()
+    },
+  }
+}
+
+/**
  * A running agent and its ACP connection, shared by every chat with that agent.
  * Each chat is one ACP session in it; what the agent sends about a session is
  * routed to that chat by session id.
@@ -56,8 +103,6 @@ export class AgentHost {
   readonly peer: ClientContext
   /** Chats whose ACP session is open in this process, by ACP session id. */
   private sessions = new Map<string, Session>()
-  private proc: ChildProcess
-  private exited: Promise<never>
   /**
    * Updates for session ids that are not registered yet. An agent may send the
    * first ones right after answering `session/new`, before the response
@@ -66,28 +111,12 @@ export class AgentHost {
   private pending: SessionNotification[] = []
   private creating = 0
 
-  private constructor(launch: Launch, cwd: string, onExit: OnExit) {
-    const proc = spawn(launch.command, launch.args, {
-      cwd,
-      env: { ...process.env, ...launch.env },
-      stdio: ['pipe', 'pipe', 'pipe'],
-      shell: process.platform === 'win32', // npx is a .cmd shim on Windows
-    })
-    this.proc = proc
-
-    let stderr = ''
-    proc.stderr.on('data', (chunk) => (stderr = (stderr + chunk).slice(-2000)))
-    this.exited = new Promise<never>((_, reject) => {
-      proc.once('error', (error) => reject(new Error(`Could not run ${launch.command}: ${error.message}`)))
-      proc.once('exit', (code) => reject(new Error(`The agent exited (code ${code}). ${stderr.trim()}`)))
-    })
-    this.exited.catch((error: Error) => onExit(this, error.message))
-
-    const stream = ndJsonStream(
-      Writable.toWeb(proc.stdin) as WritableStream<Uint8Array>,
-      Readable.toWeb(proc.stdout) as ReadableStream<Uint8Array>,
-    )
-    this.peer = client({ name: 'galena' })
+  private constructor(
+    private transport: Transport,
+    onExit: OnExit,
+  ) {
+    transport.exited.catch((error: Error) => onExit(this, error.message))
+    const app = client({ name: 'galena' })
       .onNotification('session/update', ({ params }) => this.onUpdate(params))
       .onRequest('session/request_permission', ({ params }) => {
         const session = this.sessions.get(params.sessionId)
@@ -100,12 +129,17 @@ export class AgentHost {
       .onRequest('fs/write_text_file', ({ params }) =>
         this.session(params.sessionId).writeFile(params).catch(toRequestError),
       )
-      .connect(stream).agent
+    this.peer = transport.connect(app).agent
   }
 
   /** Starts an agent and runs the ACP handshake. `onExit` runs once, when the process ends. */
   static async start(launch: Launch, cwd: string, onExit: OnExit): Promise<AgentHost> {
-    const host = new AgentHost(launch, cwd, onExit)
+    return AgentHost.open(spawnAgent(launch, cwd), onExit)
+  }
+
+  /** Runs the ACP handshake with an agent. `onExit` runs once, when the agent is gone. */
+  static async open(transport: Transport, onExit: OnExit): Promise<AgentHost> {
+    const host = new AgentHost(transport, onExit)
     try {
       const init = await host.alive(
         host.peer.request('initialize', {
@@ -139,7 +173,7 @@ export class AgentHost {
 
   /** Settles like `pending`, but rejects if the process dies first. */
   alive<T>(pending: Promise<T>): Promise<T> {
-    return Promise.race([pending, this.exited])
+    return Promise.race([pending, this.transport.exited])
   }
 
   /**
@@ -220,8 +254,7 @@ export class AgentHost {
 
   kill(): void {
     this.killed = true
-    this.proc.stdin?.end()
-    this.proc.kill()
+    this.transport.stop()
   }
 
   private onUpdate(notification: SessionNotification): void {

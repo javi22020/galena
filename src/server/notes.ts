@@ -22,7 +22,7 @@ export class NoteIndex {
   /** Lowercase note name -> paths, for resolving links; rebuilt lazily. */
   private names?: Map<string, string[]>
 
-  constructor(private vault: Vault) {}
+  constructor(private vault: Pick<Vault, 'list' | 'readIfExists'>) {}
 
   async build(): Promise<void> {
     for (const entry of await this.vault.list()) {

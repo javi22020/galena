@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 import type { Entry } from '../shared/types'
 import { NoteIndex } from './notes'
-import type { Vault } from './vault'
 
 const lines = (...text: string[]) => text.join('\n')
 
@@ -11,7 +10,7 @@ async function indexOf(notes: Record<string, string>): Promise<NoteIndex> {
     list: async (): Promise<Entry[]> => Object.keys(notes).map((path) => ({ path, type: 'file' })),
     readIfExists: async (path: string) => notes[path] ?? null,
   }
-  const index = new NoteIndex(vault as unknown as Vault)
+  const index = new NoteIndex(vault)
   await index.build()
   return index
 }
