@@ -1,6 +1,6 @@
 {
   "name": "galena",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Local Markdown notes editor with ACP coding agents built in",
   "type": "module",
   "license": "MIT",
