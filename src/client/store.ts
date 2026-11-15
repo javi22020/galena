@@ -230,6 +230,12 @@ export async function createVault(parent: string, name: string): Promise<void> {
   await sync()
 }
 
+/** Takes a vault off the list of recent ones; its folder is left alone. */
+export async function forgetVault(path: string): Promise<void> {
+  await api.forgetVault(path)
+  set({ recents: get().recents.filter((r) => r !== path) })
+}
+
 let nextTabId = 1
 
 export function openNote(path: string, line?: number): void {

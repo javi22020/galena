@@ -1,10 +1,12 @@
-import { ArrowLeft, ArrowRight, FolderOpen, FolderPlus, LoaderCircle } from 'lucide-react'
+import { ArrowLeft, ArrowRight, FolderOpen, FolderPlus, LoaderCircle, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { collapse, enter, stagger } from '@/lib/motion'
-import { createVault, openVault, setModal, useStore } from '../store'
+import { collapse, enter, quick, stagger } from '@/lib/motion'
+import { cn } from '@/lib/utils'
+import { createVault, forgetVault, openVault, setModal, showError, useStore } from '../store'
 import { FolderPicker } from './FolderPicker'
+import { IconButton } from './IconButton'
 import { Logo } from './Logo'
 import { ThemeToggle } from './ThemeToggle'
 
@@ -88,27 +90,47 @@ export function Home() {
               variants={stagger(0.05)}
               className="flex flex-col rounded-xl border bg-card p-1 shadow-xs"
             >
-              {recents.map((recent) => {
-                const name = recent.split(/[\\/]/).pop() || recent
-                return (
-                  <motion.button
-                    key={recent}
-                    variants={enter}
-                    disabled={busy}
-                    onClick={() => open(recent)}
-                    className="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors outline-none hover:bg-accent focus-visible:bg-accent disabled:pointer-events-none disabled:opacity-50"
-                  >
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-[9px] border bg-muted text-[13px] font-semibold uppercase">
-                      {name[0]}
-                    </span>
-                    <span className="flex min-w-0 flex-1 flex-col leading-snug">
-                      <span className="truncate font-medium">{name}</span>
-                      <span className="truncate font-mono text-xs text-muted-foreground">{recent}</span>
-                    </span>
-                    <ArrowRight className="size-4 opacity-40 transition-[translate,opacity] duration-300 ease-out-expo group-hover:translate-x-[3px] group-hover:opacity-100" />
-                  </motion.button>
-                )
-              })}
+              <AnimatePresence>
+                {recents.map((recent) => {
+                  const name = recent.split(/[\\/]/).pop() || recent
+                  return (
+                    <motion.div
+                      key={recent}
+                      variants={enter}
+                      exit={{ height: 0, paddingTop: 0, paddingBottom: 0, opacity: 0, transition: quick }}
+                      className={cn(
+                        'group relative flex items-center gap-3 overflow-hidden rounded-lg px-3 py-2.5 transition-colors hover:bg-accent has-[[data-open]:focus-visible]:bg-accent',
+                        busy && 'pointer-events-none opacity-50',
+                      )}
+                    >
+                      <span className="flex size-8 shrink-0 items-center justify-center rounded-[9px] border bg-muted text-[13px] font-semibold uppercase">
+                        {name[0]}
+                      </span>
+                      {/* Stretched over the row, so all of it opens the vault but the button to forget it. */}
+                      <button
+                        data-open
+                        disabled={busy}
+                        onClick={() => open(recent)}
+                        className="flex min-w-0 flex-1 flex-col text-left leading-snug outline-none after:absolute after:inset-0"
+                      >
+                        <span className="truncate font-medium">{name}</span>
+                        <span className="truncate font-mono text-xs text-muted-foreground">{recent}</span>
+                      </button>
+                      <IconButton
+                        size="icon-xs"
+                        label="Remove from recent vaults"
+                        disabled={busy}
+                        // Without a mouse there is no hover to reveal it.
+                        className="relative opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
+                        onClick={() => void forgetVault(recent).catch(showError)}
+                      >
+                        <X />
+                      </IconButton>
+                      <ArrowRight className="pointer-events-none size-4 shrink-0 opacity-40 transition-[translate,opacity] duration-300 ease-out-expo group-hover:translate-x-[3px] group-hover:opacity-100" />
+                    </motion.div>
+                  )
+                })}
+              </AnimatePresence>
             </motion.div>
           </motion.section>
         )}

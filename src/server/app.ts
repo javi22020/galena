@@ -107,6 +107,17 @@ export async function createGalena(options: GalenaOptions): Promise<Galena> {
     return c.json({})
   })
 
+  // Only the entry in the list goes: the folder and its notes stay where they are.
+  app.delete('/api/recents', async (c) => {
+    const gone = text(c.req.query('path'), 'path')
+    const recents = await readJson<string[]>(RECENTS_FILE, [])
+    await writeJson(
+      RECENTS_FILE,
+      recents.filter((r) => r !== gone),
+    )
+    return c.json({})
+  })
+
   // Any folder on this machine can become a vault, so the picker may list them all.
   app.get('/api/folders', async (c) => c.json(await listFolders(c.req.query('path'))))
 

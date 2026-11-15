@@ -47,6 +47,8 @@ export const api = {
   openVault: (path: string) => request('POST', 'vault', { path }),
   /** Makes the folder `name` inside `parent` and opens it. */
   createVault: (parent: string, name: string) => request('POST', 'vault/new', { parent, name }),
+  /** Takes a vault off the list of recent ones. */
+  forgetVault: (path: string) => request('DELETE', `recents?${query({ path })}`),
   /** Without a path, the home folder. */
   folders: (path?: string) =>
     request<FolderListing>('GET', path === undefined ? 'folders' : `folders?${query({ path })}`),
