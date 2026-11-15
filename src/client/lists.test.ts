@@ -47,6 +47,14 @@ test('indenting into a list that is already there carries on its numbers', () =>
   expect(run(indentListItems, doc, 'two')).toBe(lines('1. one', '   1. a', '   2. b', '   3. two', '2. three'))
 })
 
+test('indenting lines an item up with the children already there, however far in they are', () => {
+  // Further in than the text of `one`, which is where a first child would go.
+  expect(run(indentListItems, lines('- one', '    - a', '- two'), 'two')).toBe(lines('- one', '    - a', '    - two'))
+  expect(run(indentListItems, lines('1. one', '     1. a', '2. two'), 'two')).toBe(
+    lines('1. one', '     1. a', '     2. two'),
+  )
+})
+
 test('indenting does not apply to the first item, nor outside a list', () => {
   expect(run(indentListItems, lines('- one', '- two'), 'one')).toBe(null)
   expect(run(indentListItems, lines('some text', 'more text'), 'more')).toBe(null)
@@ -72,6 +80,11 @@ test('outdenting a numbered item counts on from its parent and makes room after 
 test('outdenting leaves the items that came after as children of the one moved', () => {
   const doc = lines('1. one', '   1. a', '   2. b', '   3. c', '2. two')
   expect(run(outdentListItems, doc, 'a')).toBe(lines('1. one', '2. a', '   1. b', '   2. c', '3. two'))
+})
+
+test('outdenting lines the items that came after up with the children the one moved already has', () => {
+  const doc = lines('- one', '  - a', '      - child', '  - b')
+  expect(run(outdentListItems, doc, 'a')).toBe(lines('- one', '- a', '    - child', '    - b'))
 })
 
 test('a number that gets wider pushes the rest of its item along', () => {

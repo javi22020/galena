@@ -16,7 +16,7 @@ export const indentListItems: StateCommand = ({ state, dispatch }) => {
   // Join the list the item above already ends with, or start one under its text.
   const joined = nestedList(above)
   const from = markColumn(doc, first)
-  const target = joined ? column(doc, joined.from) : contentColumn(doc, above)
+  const target = joined ? itemColumn(doc, joined) : contentColumn(doc, above)
   if (from === null || target === null || target <= from) return false
 
   const edit = listEdit(doc)
@@ -58,7 +58,7 @@ export const outdentListItems: StateCommand = ({ state, dispatch }) => {
   const tail = siblingsAfter(last)
   if (tail.length) {
     const own = nestedList(last)
-    const before = own ? column(doc, own.from) : contentColumn(doc, last)
+    const before = own ? itemColumn(doc, own) : contentColumn(doc, last)
     if (before === null) return false
     for (const item of tail) {
       const at = markColumn(doc, item)
@@ -212,6 +212,16 @@ function column(doc: Text, pos: number): number | null {
 
 function markColumn(doc: Text, item: SyntaxNode): number | null {
   return column(doc, markOf(item).from)
+}
+
+/**
+ * The column the items of a list are at, taken from its last one, next to
+ * which a new one goes. Not where the list itself starts: a nested list takes
+ * in the indentation before its first marker, so it starts at its parent's text.
+ */
+function itemColumn(doc: Text, list: SyntaxNode): number | null {
+  const item = list.lastChild
+  return item && markColumn(doc, item)
 }
 
 /** The column where an item's own text starts, which is how far its children are indented. */
