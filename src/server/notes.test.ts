@@ -71,6 +71,17 @@ test('backlinks are the lines that link to a note, whatever heading or alias the
   ])
 })
 
+test('a link shown as code is not a backlink, and the lines after it keep their numbers', async () => {
+  const index = await indexOf({
+    'Target.md': '',
+    'a.md': lines('First [[Target]]', '```md', 'Write [[Target]] to link', '```', 'Last [[Target]]'),
+  })
+  expect(index.backlinks('Target.md')).toStrictEqual([
+    { path: 'a.md', line: 1, text: 'First [[Target]]' },
+    { path: 'a.md', line: 5, text: 'Last [[Target]]' },
+  ])
+})
+
 test('a name shared by several notes links to the nearest, unless the link gives a path', async () => {
   const index = await indexOf({
     'x/deep/T.md': '',

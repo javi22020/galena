@@ -46,7 +46,9 @@ export class NoteIndex {
     const matches: LineMatch[] = []
     for (const [source, note] of this.notes) {
       if (source === path || !note.links.some((link) => this.resolve(link) === path)) continue
-      note.text.split('\n').forEach((text, index) => {
+      // Code is blanked rather than dropped, so that the lines after it keep their numbers.
+      const shown = note.text.replace(FENCED_CODE, (code) => code.replace(/[^\n]/g, ''))
+      shown.split('\n').forEach((text, index) => {
         const links = [...text.matchAll(WIKILINK)]
         if (links.some((m) => this.resolve(m[1]!) === path)) {
           matches.push({ path: source, line: index + 1, text: text.trim() })
