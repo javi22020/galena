@@ -1,7 +1,6 @@
 import type {
   AgentInfo,
   AppState,
-  Change,
   ContextRef,
   Entry,
   FolderListing,
@@ -69,10 +68,6 @@ export const api = {
   settings: () => request<Settings>('GET', 'settings'),
   saveSettings: (settings: Settings) => request<Settings>('PUT', 'settings', settings),
   agents: () => request<AgentInfo[]>('GET', 'agents'),
-
-  changes: () => request<Change[]>('GET', 'changes'),
-  resolveChanges: (action: 'accept' | 'reject', paths?: string[]) =>
-    request('POST', 'changes', { action, paths }),
 
   gitDiff: (path: string) => request<GitDiff>('GET', `git/diff?${query({ path })}`),
   gitConflict: (path: string) => request<GitConflict>('GET', `git/conflict?${query({ path })}`),

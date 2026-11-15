@@ -6,7 +6,6 @@ import {
   defaultSettings,
   type AgentInfo,
   type AppState,
-  type Change,
   type ChatState,
   type ContextRef,
   type Entry,
@@ -49,7 +48,6 @@ interface State {
   settings: Settings
   /** Agents published in the ACP registry. */
   agents: AgentInfo[]
-  changes: Change[]
   /** The vault's repository; null until the server has looked at it. */
   git: GitStatus | null
   /** A Git action is running. */
@@ -83,13 +81,12 @@ interface State {
 
 export type Drawer = 'explorer' | 'agent'
 
-export type ModalName = 'palette' | 'graph' | 'settings' | 'review' | 'folders' | 'new-vault' | 'diff' | 'conflict'
+export type ModalName = 'palette' | 'graph' | 'settings' | 'folders' | 'new-vault' | 'diff' | 'conflict'
 
 const emptyChat = { seq: 0, items: [], permissions: [] }
 
 const emptyVault = {
   entries: [],
-  changes: [],
   git: null,
   gitBusy: false,
   gitFile: null,
@@ -151,14 +148,9 @@ export async function sync(): Promise<void> {
     const state = await api.state()
     if (!state.vault) return set({ phase: 'home', ...state })
     connect()
-    const [entries, settings, sessions, changes] = await Promise.all([
-      api.tree(),
-      api.settings(),
-      api.sessions(),
-      api.changes(),
-    ])
+    const [entries, settings, sessions] = await Promise.all([api.tree(), api.settings(), api.sessions()])
     const agentId = get().agentId in settings.agents ? get().agentId : firstAgent(settings)
-    set({ phase: 'workspace', ...state, entries, settings, sessions, changes, agentId })
+    set({ phase: 'workspace', ...state, entries, settings, sessions, agentId })
     refreshGit()
   } catch {
     setTimeout(sync, 2000) // the server is unreachable; keep trying
@@ -194,9 +186,6 @@ function onServerEvent(event: ServerEvent): void {
       treeTimer = window.setTimeout(() => {
         api.tree().then((entries) => set({ entries, fsTick: get().fsTick + 1 }), showError)
       }, 80)
-      break
-    case 'changes':
-      api.changes().then((changes) => set({ changes }), showError)
       break
     case 'git':
       set({ git: event.status })

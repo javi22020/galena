@@ -20,7 +20,6 @@ import { GraphView } from './Graph'
 import { IconButton } from './IconButton'
 import { MergeResolver } from './MergeResolver'
 import { Palette } from './Palette'
-import { Review } from './Review'
 import { Settings } from './Settings'
 import { Sidebar } from './Sidebar'
 import { ThemeToggle } from './ThemeToggle'
@@ -172,7 +171,6 @@ export function Workspace() {
       <Palette />
       <GraphView />
       <Settings />
-      <Review />
       <GitDiff />
       <MergeResolver />
     </div>

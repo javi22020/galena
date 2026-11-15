@@ -11,7 +11,7 @@ import { saveSettings, useStore } from '../store'
 import { ConfirmDialog, type Confirmation } from './ConfirmDialog'
 import { Modal } from './Modal'
 
-/** Agents, permissions, folders hidden from agents, Git and editor preferences. */
+/** Agents, Git and editor preferences. */
 export function Settings() {
   return (
     <Modal name="settings" title="Settings" className="sm:max-w-3xl">
@@ -148,25 +148,6 @@ function SettingsBody() {
           />
           <Button variant="outline">Add</Button>
         </form>
-      </Section>
-
-      <Section title="Permissions">
-        <Field label="When an agent edits or asks">
-          <Select
-            value={settings.defaultPermission}
-            onValueChange={(value: SettingsData['defaultPermission']) => update({ defaultPermission: value })}
-          >
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value="ask">Ask me</SelectItem>
-                <SelectItem value="allow">Always allow</SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </Field>
       </Section>
 
       <Section

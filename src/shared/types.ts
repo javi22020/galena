@@ -35,8 +35,6 @@ export interface FolderListing {
 export interface Settings {
   /** Agents shown in the chat selector, keyed by registry id. */
   agents: Record<string, { command?: string }>
-  /** How agent permission requests, and agent writes, are answered. */
-  defaultPermission: 'ask' | 'allow'
   editor: {
     fontSize: number
     lineWrap: boolean
@@ -52,7 +50,6 @@ export interface Settings {
 
 export const defaultSettings: Settings = {
   agents: { 'claude-acp': {}, 'codex-acp': {} },
-  defaultPermission: 'ask',
   editor: { fontSize: 15, lineWrap: true, fonts: { heading: 'geist', text: 'geist', code: 'geist-mono' } },
   git: { excludeGalena: true, parentRepo: false },
 }
@@ -77,15 +74,6 @@ export interface LineMatch {
 export interface Graph {
   nodes: { path: string; tags: string[] }[]
   links: { source: string; target: string }[]
-}
-
-/** A file written by an agent and not yet accepted or rejected. */
-export interface Change {
-  path: string
-  /** Content before the agent touched it; null if the file did not exist. */
-  before: string | null
-  after: string
-  sessionId: string
 }
 
 /** A file of the vault that differs from the last commit. */
@@ -123,9 +111,6 @@ export interface GitStatus {
   tracksGalena: boolean
   files: GitFile[]
 }
-
-/** Why nothing is committed, and no note rewritten, while an agent's changes wait for review. */
-export const UNREVIEWED = "Accept or reject the agent's changes first"
 
 /** A changed file next to its last commit; a side is null where the file does not exist. */
 export interface GitDiff {
@@ -241,7 +226,6 @@ export interface SessionDetail extends ChatState {
 /** Messages pushed to the browser over the WebSocket. */
 export type ServerEvent =
   | { type: 'fs'; event: 'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir'; path: string }
-  | { type: 'changes' }
   | { type: 'git'; status: GitStatus }
   | { type: 'session'; meta: SessionMeta }
   | { type: 'session-deleted'; id: string }

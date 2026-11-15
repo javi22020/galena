@@ -3,14 +3,7 @@ import { copyFile, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { watch, type FSWatcher } from 'chokidar'
-import {
-  UNREVIEWED,
-  type GitConflict,
-  type GitDiff,
-  type GitFile,
-  type GitResolution,
-  type GitStatus,
-} from '../shared/types'
+import type { GitConflict, GitDiff, GitFile, GitResolution, GitStatus } from '../shared/types'
 import { defaultMessage, excludeRules, failureText, isSafeRemote, parseStatus } from './git-status'
 import { errorMessage, exists, hasCode, HttpError } from './util'
 import type { Workspace } from './workspace'
@@ -222,7 +215,6 @@ export class Git {
   commit(message: string): Promise<GitStatus> {
     return this.change(async () => {
       this.require('ready')
-      await this.requireReviewed()
       await this.commitAll(message)
     })
   }
@@ -231,7 +223,6 @@ export class Git {
   sync(message: string): Promise<GitStatus> {
     return this.change(async () => {
       this.require('ready')
-      await this.requireReviewed()
       if (this.status.files.length) await this.commitAll(message)
       if (!this.status.remote) return
       await this.fetchRemote()
@@ -252,7 +243,6 @@ export class Git {
   pull(): Promise<GitStatus> {
     return this.change(async () => {
       this.require('ready')
-      await this.requireReviewed()
       await this.fetchRemote()
       if (!(await this.track())) throw new HttpError(409, 'The remote does not have this branch yet')
       await this.merge()
@@ -270,7 +260,6 @@ export class Git {
   discard(paths: string[]): Promise<GitStatus> {
     return this.change(async () => {
       this.require('ready')
-      await this.requireReviewed()
       const files = paths.map((rel) => this.file(rel))
       if (files.some((file) => file.status === 'conflict')) {
         throw new HttpError(409, 'Resolve the conflict instead of discarding it')
@@ -303,7 +292,6 @@ export class Git {
       // leaves no merge under way. In a rebase, a cherry-pick or a revert,
       // "ours" and "theirs" swap, so "local" would keep the incoming side.
       if (this.status.state !== 'ready') this.require('merging')
-      await this.requireReviewed()
       const { path: file } = this.file(rel, 'conflict')
       if ('content' in resolution) {
         const abs = this.resolve(file)
@@ -325,7 +313,6 @@ export class Git {
   abortMerge(): Promise<GitStatus> {
     return this.change(async () => {
       this.require('merging')
-      await this.requireReviewed()
       await this.git(['merge', '--abort'])
     })
   }
@@ -334,7 +321,6 @@ export class Git {
   finishMerge(): Promise<GitStatus> {
     return this.change(async () => {
       this.require('merging')
-      await this.requireReviewed()
       if (this.status.files.some((file) => file.status === 'conflict')) {
         throw new HttpError(409, 'Some conflicts are not resolved yet')
       }
@@ -501,15 +487,6 @@ export class Git {
       error: this.status.message ?? 'Git could not read the repository',
     }
     throw new HttpError(409, reasons[this.status.state])
-  }
-
-  /**
-   * For anything that commits or rewrites files. An agent's change is already
-   * on disk while it waits for review: committing would take it in unreviewed,
-   * and rewriting the file would leave a rejection restoring stale content.
-   */
-  private async requireReviewed(): Promise<void> {
-    if ((await this.workspace.changes.list()).length) throw new HttpError(409, UNREVIEWED)
   }
 
   /** The changed file at a path the browser sent; nothing else can be touched. */

@@ -10,7 +10,7 @@ import { noteName } from '../../shared/links'
 import type { LineMatch } from '../../shared/types'
 import { api } from '../api'
 import { NoteEditor } from '../editor'
-import { closeTab, newNote, openNote, setModal, showError, useStore, type Tab } from '../store'
+import { closeTab, newNote, openNote, showError, useStore, type Tab } from '../store'
 import { IconButton } from './IconButton'
 import { Logo } from './Logo'
 
@@ -27,7 +27,6 @@ export function Editor({ leading, trailing, inert }: EditorProps) {
   const tabs = useStore((s) => s.tabs)
   const active = useStore((s) => s.active)
   const tab = tabs.find((t) => t.id === active)
-  const changed = useStore((s) => s.changes.some((change) => change.path === tab?.path))
   const scroller = useRef<HTMLDivElement>(null)
   const host = useRef<HTMLDivElement>(null)
   const editor = useRef<NoteEditor>(null)
@@ -128,15 +127,6 @@ export function Editor({ leading, trailing, inert }: EditorProps) {
             </Button>
             <Button variant="outline" size="sm" onClick={() => resolve('mine')}>
               Keep mine
-            </Button>
-          </Banner>
-        )}
-        {changed && (
-          <Banner key="changed">
-            <span className="size-1.5 shrink-0 rounded-full bg-brand" />
-            An agent changed this note.
-            <Button variant="outline" size="sm" onClick={() => setModal('review')}>
-              Review
             </Button>
           </Banner>
         )}

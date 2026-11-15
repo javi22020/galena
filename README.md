@@ -37,19 +37,15 @@ the Git already on your machine, if there is one.
   streaming answers, tool calls, plans and permission requests. Mention notes
   with `@`, attach the open note, or send the current selection with
   Ctrl/Cmd+L. Pick the mode, the model, the effort and whatever else the agent
-  offers; new chats keep the last mode, model and effort chosen for each agent.
-  Permission requests can be asked every time, always allowed or always
-  rejected.
-- **Reviewable edits.** Files an agent writes through ACP are recorded as
-  changes you can accept or reject, per file or all at once.
+  offers; new chats start with the last mode, model and effort you picked for
+  each agent. The agent asks for permission as the mode chosen in the chat says.
 - **Git.** A Git tab next to the files can initialize a repository for the
   vault, or use the one the vault folder is part of, and add a remote. It shows
   what changed since the last commit, with diffs; one Sync button that commits,
   merges what the remote has and pushes (just Commit while there is no remote);
   and a view to resolve the conflicts a merge leaves, one by one. Changes are
-  committed whole, and an agent's changes have to be reviewed before they can
-  be. `.galena/` stays out of the repository unless you say otherwise in
-  Settings; its trash always does.
+  committed whole. `.galena/` stays out of the repository unless you say
+  otherwise in Settings; its trash always does.
 
 Galena stores no credentials: each agent uses the login or API key of its own
 CLI, and Git uses the credential helper or SSH keys it is already set up with.
@@ -83,7 +79,6 @@ before `pnpm dev`. Without it, the dev server opens on the home screen.
 | `src/server/notes.ts`     | In-memory index: wikilinks, tags, backlinks, graph, search  |
 | `src/server/agents.ts`    | Agent processes: one per agent, shared by its chats         |
 | `src/server/sessions.ts`  | Chats and their ACP sessions                                |
-| `src/server/changes.ts`   | Agent writes awaiting review                                |
 | `src/server/git*.ts`      | The vault's Git repository, through the installed `git`     |
 | `src/server/registry.ts`  | The ACP agent registry                                      |
 | `src/shared`              | Types, transcript reducer and config option helpers         |

@@ -5,7 +5,6 @@ import { pathToFileURL } from 'node:url'
 import {
   RequestError,
   type ContentBlock,
-  type PermissionOption,
   type ReadTextFileRequest,
   type ReadTextFileResponse,
   type RequestPermissionRequest,
@@ -41,13 +40,6 @@ const REMEMBERED = new Set(['model', 'thought_level', 'mode'])
 /** Writes to `DEFAULTS_FILE`, one after another. */
 let savingDefaults = Promise.resolve()
 
-/** What the user is offered when an agent writes a note it did not ask permission for. */
-const WRITE_OPTIONS: PermissionOption[] = [
-  { optionId: 'allow_once', name: 'Allow', kind: 'allow_once' },
-  { optionId: 'allow_always', name: 'Allow all edits in this chat', kind: 'allow_always' },
-  { optionId: 'reject_once', name: 'Reject', kind: 'reject_once' },
-]
-
 type Values = Record<string, string | boolean>
 type Defaults = Record<string, Record<string, string>>
 
@@ -63,9 +55,7 @@ interface Stored {
 /** What a chat needs from whoever holds it: its agent, and the workspace it runs in. */
 export interface ChatOwner {
   readonly workspace: Pick<Workspace, 'broadcast'> & {
-    settings: Pick<Workspace['settings'], 'defaultPermission'>
-    changes: Pick<Workspace['changes'], 'write'>
-    vault: Pick<Vault, 'read' | 'relative' | 'resolve' | 'root'>
+    vault: Pick<Vault, 'read' | 'relative' | 'resolve' | 'root' | 'write'>
   }
   agent(agentId: string): Promise<AgentHost>
   remember(agentId: string, configId: string, value: string): void
@@ -236,10 +226,6 @@ export class Session {
   /** True while `session/load` replays history we already have. */
   private replaying = false
   private waiting = new Map<string, (optionId: string | null) => void>()
-  /** Notes the agent was allowed to edit by its own permission request, each for one write. */
-  private approved = new Set<string>()
-  /** The user allowed every edit in this chat. */
-  private allowEdits = false
   private queue: Promise<unknown> = Promise.resolve()
   /** Deleted, or its vault closed: nothing of it is published or saved any more. */
   private ended = false
@@ -394,39 +380,18 @@ export class Session {
     this.emit({ type: 'update', update })
   }
 
+  /** Asks the user what the agent asks, whenever it does: that is up to the mode it is in. */
   async requestPermission(params: RequestPermissionRequest): Promise<RequestPermissionResponse> {
     const { toolCall, options } = params
     // The request describes the tool call it is about; show it in the transcript.
     this.emit({ type: 'update', update: { ...toolCall, sessionUpdate: 'tool_call_update' } })
 
-    const optionId = await this.decide(toolCall.title ?? 'Permission required', options)
-    const kind = options.find((o) => o.optionId === optionId)?.kind
-    // An edit the agent asked about is not asked about again when it writes the note,
-    // nor any edit once it was allowed always, as the agent will not ask again.
-    if (toolCall.kind === 'edit' && kind?.startsWith('allow')) {
-      if (kind === 'allow_always') this.allowEdits = true
-      for (const { path: abs } of toolCall.locations ?? []) {
-        try {
-          this.approved.add(this.workspace.vault.relative(abs))
-        } catch {
-          // Outside the vault, or hidden: Galena never writes it, so there is nothing to approve.
-        }
-      }
-    }
-    return { outcome: optionId ? { outcome: 'selected', optionId } : { outcome: 'cancelled' } }
-  }
-
-  /** Picks an option as the settings say, or waits for the user to; null if none is chosen. */
-  private decide(title: string, options: PermissionOption[]): Promise<string | null> {
-    if (this.workspace.settings.defaultPermission === 'allow') {
-      const option = options.find((o) => o.kind === 'allow_once') ?? options.find((o) => o.kind === 'allow_always')
-      return Promise.resolve(option?.optionId ?? null)
-    }
-    return new Promise((resolve) => {
-      const request = { id: randomUUID(), title, options }
+    const optionId = await new Promise<string | null>((resolve) => {
+      const request = { id: randomUUID(), title: toolCall.title ?? 'Permission required', options }
       this.waiting.set(request.id, resolve)
       this.emit({ type: 'permission', request })
     })
+    return { outcome: optionId ? { outcome: 'selected', optionId } : { outcome: 'cancelled' } }
   }
 
   async readFile(request: ReadTextFileRequest): Promise<ReadTextFileResponse> {
@@ -438,18 +403,9 @@ export class Session {
     return { content: content.split('\n').slice(start, end).join('\n') }
   }
 
-  /**
-   * Agent writes need permission, as the settings say, unless the agent already
-   * asked for this edit; whatever is written is still recorded as a reviewable change.
-   */
+  /** Writes a file for the agent, inside the vault only; whether it asks first is up to its mode. */
   async writeFile({ path: abs, content }: WriteTextFileRequest): Promise<void> {
-    const rel = this.workspace.vault.relative(abs)
-    if (!this.allowEdits && !this.approved.delete(rel)) {
-      const choice = await this.decide(`Edit ${rel}`, WRITE_OPTIONS)
-      if (choice === 'allow_always') this.allowEdits = true
-      else if (choice !== 'allow_once') throw new Error(`The user did not allow editing ${rel}`)
-    }
-    await this.workspace.changes.write(rel, content, this.meta.id)
+    await this.workspace.vault.write(this.workspace.vault.relative(abs), content)
   }
 
   /**

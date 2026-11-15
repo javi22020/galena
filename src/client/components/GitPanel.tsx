@@ -26,11 +26,10 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { noteName, parentOf } from '../../shared/links'
-import { UNREVIEWED, type GitFile, type GitStatus } from '../../shared/types'
-import { gitNote, openGitFile, runGit, saveSettings, setModal, showGitFile, useStore } from '../store'
+import type { GitFile, GitStatus } from '../../shared/types'
+import { gitNote, openGitFile, runGit, saveSettings, showGitFile, useStore } from '../store'
 import { ConfirmDialog, type Confirmation } from './ConfirmDialog'
 import { IconButton } from './IconButton'
 
@@ -100,22 +99,15 @@ export function discardRequest(file: GitFile): Confirmation {
 }
 
 function Repository({ git }: { git: GitStatus }) {
-  const unreviewed = useStore((s) => s.changes.length > 0)
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null)
   const merging = git.state === 'merging'
-  const blocked = unreviewed ? UNREVIEWED : undefined
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       {merging ? (
-        <MergeBar git={git} blocked={blocked} onConfirm={setConfirmation} />
+        <MergeBar git={git} onConfirm={setConfirmation} />
       ) : (
-        <CommitBox git={git} blocked={blocked} />
-      )}
-      {unreviewed && (
-        <Callout action="Review" onAction={() => setModal('review')}>
-          An agent&apos;s changes are waiting for review.
-        </Callout>
+        <CommitBox git={git} />
       )}
       {git.tracksGalena && (
         <Callout action="Stop tracking" onAction={() => runGit('untrack')}>
@@ -142,20 +134,14 @@ function Repository({ git }: { git: GitStatus }) {
   )
 }
 
-interface ActionsProps {
-  git: GitStatus
-  /** Why committing is not possible right now, if it is not. */
-  blocked: string | undefined
-}
-
 /** The commit message and the button that commits, pulls and pushes in one go. */
-function CommitBox({ git, blocked }: ActionsProps) {
+function CommitBox({ git }: { git: GitStatus }) {
   const busy = useStore((s) => s.gitBusy)
   const [message, setMessage] = useState('')
   const dirty = git.files.length > 0
   // Without a remote there is nothing to sync with, so the button just commits.
   const main = git.remote ? 'sync' : 'commit'
-  const disabled = busy || !!blocked || (main === 'commit' && !dirty)
+  const disabled = busy || (main === 'commit' && !dirty)
 
   const save = (action: 'commit' | 'sync') => void runGit(action, { message })
 
@@ -178,18 +164,16 @@ function CommitBox({ git, blocked }: ActionsProps) {
         className="min-h-[52px] rounded-lg text-[13px] md:text-[13px]"
       />
       <div className="flex gap-px">
-        <Blocked reason={blocked} className="flex min-w-0 flex-1">
-          <Button
-            className={cn('min-w-0 flex-1', git.remote && 'rounded-r-none')}
-            disabled={disabled}
-            onClick={() => save(main)}
-          >
-            {busy ? <LoaderCircle className="animate-spin" /> : git.remote ? <RefreshCw /> : <Check />}
-            {git.remote ? 'Sync' : 'Commit'}
-            {git.ahead > 0 && <Count icon={<ArrowUp />}>{git.ahead}</Count>}
-            {git.behind > 0 && <Count icon={<ArrowDown />}>{git.behind}</Count>}
-          </Button>
-        </Blocked>
+        <Button
+          className={cn('min-w-0 flex-1', git.remote && 'rounded-r-none')}
+          disabled={disabled}
+          onClick={() => save(main)}
+        >
+          {busy ? <LoaderCircle className="animate-spin" /> : git.remote ? <RefreshCw /> : <Check />}
+          {git.remote ? 'Sync' : 'Commit'}
+          {git.ahead > 0 && <Count icon={<ArrowUp />}>{git.ahead}</Count>}
+          {git.behind > 0 && <Count icon={<ArrowDown />}>{git.behind}</Count>}
+        </Button>
         {git.remote && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -198,13 +182,11 @@ function CommitBox({ git, blocked }: ActionsProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-36">
-              <DropdownMenuItem disabled={!dirty || !!blocked} onSelect={() => save('commit')}>
+              <DropdownMenuItem disabled={!dirty} onSelect={() => save('commit')}>
                 Commit
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem disabled={!!blocked} onSelect={() => runGit('pull')}>
-                Pull
-              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => runGit('pull')}>Pull</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => runGit('push')}>Push</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => runGit('fetch')}>Fetch</DropdownMenuItem>
             </DropdownMenuContent>
@@ -212,26 +194,6 @@ function CommitBox({ git, blocked }: ActionsProps) {
         )}
       </div>
     </div>
-  )
-}
-
-interface BlockedProps {
-  reason: string | undefined
-  className: string
-  children: ReactNode
-}
-
-/** Says why the controls inside are disabled: they get no pointer events, so the tooltip hangs from this. */
-function Blocked({ reason, className, children }: BlockedProps) {
-  return (
-    <Tooltip open={reason ? undefined : false}>
-      <TooltipTrigger asChild>
-        <div className={className} tabIndex={reason ? 0 : undefined}>
-          {children}
-        </div>
-      </TooltipTrigger>
-      <TooltipContent>{reason}</TooltipContent>
-    </Tooltip>
   )
 }
 
@@ -243,12 +205,13 @@ const Count = ({ icon, children }: { icon: ReactNode; children: ReactNode }) => 
 )
 
 /** Shown instead of the commit box while a merge waits for its conflicts. */
-interface MergeBarProps extends ActionsProps {
+interface MergeBarProps {
+  git: GitStatus
   /** Asks before the merge is thrown away. */
   onConfirm: (request: Confirmation) => void
 }
 
-function MergeBar({ git, blocked, onConfirm }: MergeBarProps) {
+function MergeBar({ git, onConfirm }: MergeBarProps) {
   const busy = useStore((s) => s.gitBusy)
   const conflicts = git.files.filter((file) => file.status === 'conflict').length
   const pending =
@@ -274,20 +237,19 @@ function MergeBar({ git, blocked, onConfirm }: MergeBarProps) {
       <p className="text-xs text-muted-foreground">
         {conflicts ? pending : 'Every conflict is resolved. Finish the merge, then sync to push it.'}
       </p>
-      {/* Both rewrite notes, so both wait for the agent's changes to be reviewed. */}
-      <Blocked reason={blocked} className="flex gap-2">
-        <Button variant="outline" size="sm" className="flex-1" disabled={busy || !!blocked} onClick={abort}>
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" className="flex-1" disabled={busy} onClick={abort}>
           Abort
         </Button>
         <Button
           size="sm"
           className="flex-1"
-          disabled={busy || !!blocked || conflicts > 0}
+          disabled={busy || conflicts > 0}
           onClick={() => runGit('finish')}
         >
           Finish merge
         </Button>
-      </Blocked>
+      </div>
     </div>
   )
 }

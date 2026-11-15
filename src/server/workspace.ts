@@ -1,8 +1,8 @@
+import { rm } from 'node:fs/promises'
 import path from 'node:path'
 import { watch, type FSWatcher } from 'chokidar'
 import { codeFonts, textFonts } from '../shared/fonts'
 import { defaultSettings, type ServerEvent, type Settings } from '../shared/types'
-import { Changes } from './changes'
 import { Git } from './git'
 import { NoteIndex } from './notes'
 import { Sessions } from './sessions'
@@ -14,7 +14,6 @@ export type Broadcast = (event: ServerEvent) => void
 /** Everything that lives while a vault is open. */
 export class Workspace {
   readonly index: NoteIndex
-  readonly changes: Changes
   readonly sessions: Sessions
   readonly git: Git
   settings = defaultSettings
@@ -26,7 +25,6 @@ export class Workspace {
     readonly broadcast: Broadcast,
   ) {
     this.index = new NoteIndex(vault)
-    this.changes = new Changes(vault, () => broadcast({ type: 'changes' }))
     this.sessions = new Sessions(this)
     this.git = new Git(this)
     this.settingsFile = path.join(vault.configDir, 'config.json')
@@ -35,7 +33,10 @@ export class Workspace {
   static async open(dir: string, broadcast: Broadcast): Promise<Workspace> {
     const workspace = new Workspace(await Vault.open(dir), broadcast)
     workspace.settings = normalize(await readJson(workspace.settingsFile, {}))
-    await Promise.all([workspace.index.build(), workspace.changes.load(), workspace.sessions.load()])
+    await Promise.all([workspace.index.build(), workspace.sessions.load()])
+    // Where agent writes used to wait for review, with the notes as they were before.
+    // Left behind if it cannot be deleted (locked, say): nothing reads it any more.
+    await rm(path.join(workspace.vault.configDir, 'changes.json'), { force: true }).catch(() => {})
     // Not the Git status: the browser asks for it as soon as the vault is open,
     // and every Git action reads it afresh anyway.
     workspace.watch()
@@ -103,8 +104,6 @@ function normalize(input: unknown): Settings {
   const fallback = defaultSettings.editor.fonts
   return {
     agents,
-    // Anything else, such as the "reject" there used to be, is asked about.
-    defaultPermission: raw.defaultPermission === 'allow' ? 'allow' : 'ask',
     editor: {
       fontSize: Math.min(28, Math.max(10, fontSize)),
       lineWrap: raw.editor?.lineWrap !== false,

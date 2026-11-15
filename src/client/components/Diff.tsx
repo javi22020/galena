@@ -18,17 +18,6 @@ interface Line {
   text: string
 }
 
-/** How many lines a change adds and removes. */
-export function diffStat(before: string, after: string): { added: number; removed: number } {
-  let added = 0
-  let removed = 0
-  for (const part of changes(before, after)) {
-    if (part.added) added += part.count
-    else if (part.removed) removed += part.count
-  }
-  return { added, removed }
-}
-
 interface DiffProps {
   before: string
   after: string

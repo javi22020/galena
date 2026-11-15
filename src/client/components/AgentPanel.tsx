@@ -1,7 +1,7 @@
 import type { AuthMethod } from '@agentclientprotocol/sdk'
 import { History, KeyRound, PenLine, Trash2 } from 'lucide-react'
-import { AnimatePresence, motion } from 'motion/react'
-import { useMemo, useState, type ReactNode } from 'react'
+import { motion } from 'motion/react'
+import { useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import {
@@ -31,15 +31,14 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from '@/components/ui/message-scroller'
-import { collapse, enterProps, outExpo } from '@/lib/motion'
+import { enterProps, outExpo } from '@/lib/motion'
 import { shortcut } from '@/lib/platform'
 import { cn } from '@/lib/utils'
 import type { SessionMeta } from '../../shared/types'
 import { api } from '../api'
-import { newChat, pickAgent, selectChat, setModal, showError, useStore } from '../store'
+import { newChat, pickAgent, selectChat, showError, useStore } from '../store'
 import { Composer } from './Composer'
 import { ConfirmDialog } from './ConfirmDialog'
-import { diffStat } from './Diff'
 import { IconButton } from './IconButton'
 import { Picker } from './Picker'
 import { Transcript } from './Transcript'
@@ -52,7 +51,6 @@ export function AgentPanel() {
   const agentId = useStore((s) => s.agentId)
   const enabled = useStore((s) => s.settings.agents)
   const registry = useStore((s) => s.agents)
-  const changes = useStore((s) => s.changes)
   const [deleting, setDeleting] = useState(false)
   const session = sessions.find((s) => s.id === chatId)
   const running = session?.status === 'running'
@@ -61,16 +59,6 @@ export function AgentPanel() {
 
   const agentName = (id: string) => registry.find((agent) => agent.id === id)?.name ?? id
   const agentIds = Object.keys(enabled)
-
-  const stat = useMemo(() => {
-    const total = { added: 0, removed: 0 }
-    for (const { before, after } of changes) {
-      const { added, removed } = diffStat(before ?? '', after)
-      total.added += added
-      total.removed += removed
-    }
-    return total
-  }, [changes])
 
   return (
     <div className="flex h-full flex-col">
@@ -169,23 +157,6 @@ export function AgentPanel() {
       </div>
 
       <div className="flex shrink-0 flex-col px-3 pb-3">
-        <AnimatePresence initial={false}>
-          {changes.length > 0 && (
-            <motion.div {...collapse} className="overflow-hidden">
-              <div className="mb-2 flex items-center gap-2.5 rounded-xl border bg-card py-2 pr-2 pl-3 text-[13px]">
-                <span className="font-medium">
-                  {changes.length} {changes.length === 1 ? 'file' : 'files'} changed
-                </span>
-                <span className="font-mono text-xs text-success">+{stat.added}</span>
-                <span className="font-mono text-xs text-muted-foreground">−{stat.removed}</span>
-                <span className="flex-1" />
-                <Button variant="outline" size="sm" onClick={() => setModal('review')}>
-                  Review
-                </Button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
         <Composer session={session} />
       </div>
 

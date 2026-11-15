@@ -44,7 +44,6 @@ export interface ExplorerHandle {
 /** Folder and note tree with create, rename, move (drag and drop) and delete. */
 export function Explorer({ ref }: { ref?: Ref<ExplorerHandle> }) {
   const entries = useStore((s) => s.entries)
-  const changes = useStore((s) => s.changes)
   const activePath = useStore((s) => s.tabs.find((t) => t.id === s.active)?.path)
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set())
   const [draft, setDraft] = useState<Draft | null>(null)
@@ -53,7 +52,6 @@ export function Explorer({ ref }: { ref?: Ref<ExplorerHandle> }) {
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null)
   const nameInput = useRef<HTMLInputElement>(null)
   const tree = useMemo(() => buildTree(entries), [entries])
-  const changed = useMemo(() => new Set(changes.map((change) => change.path)), [changes])
 
   const expand = (paths: string[]) => setExpanded((current) => new Set([...current, ...paths]))
   const toggle = (path: string) =>
@@ -163,9 +161,6 @@ export function Explorer({ ref }: { ref?: Ref<ExplorerHandle> }) {
                 <File className="size-3.5 shrink-0 text-muted-foreground" />
               )}
               <span className="flex-1 truncate">{name}</span>
-              {changed.has(path) && (
-                <span className="size-1.5 shrink-0 rounded-full bg-brand" title="Changed by an agent" />
-              )}
             </div>
             <AnimatePresence initial={false}>
               {dir && open && (

@@ -1,6 +1,5 @@
 import {
   File,
-  FileDiff,
   FilePlus,
   FolderOpen,
   PenLine,
@@ -34,7 +33,6 @@ const commands: Item[] = [
   { title: 'New note', icon: FilePlus, run: () => void newNote().catch(showError) },
   { title: 'Open graph', icon: Share2, run: () => setModal('graph') },
   { title: 'Toggle theme', icon: SunMoon, run: toggleTheme },
-  { title: 'Review agent changes', icon: FileDiff, run: () => setModal('review') },
   { title: 'Open settings', icon: Settings2, run: () => setModal('settings') },
   { title: 'New chat', icon: PenLine, run: () => void newChat() },
   { title: 'Open another vault', icon: FolderOpen, run: () => useStore.setState({ phase: 'home' }) },

@@ -173,17 +173,6 @@ export async function createGalena(options: GalenaOptions): Promise<Galena> {
   app.put('/api/settings', async (c) => c.json(await current().saveSettings(await c.req.json())))
   app.get('/api/agents', async (c) => c.json(await listAgents()))
 
-  // Agent changes
-
-  app.get('/api/changes', async (c) => c.json(await current().changes.list()))
-
-  app.post('/api/changes', async (c) => {
-    const body = await c.req.json()
-    const action = body.action === 'accept' ? 'accept' : 'reject'
-    await current().changes.resolve(action, Array.isArray(body.paths) ? body.paths : undefined)
-    return c.json({})
-  })
-
   // Git
 
   app.get('/api/git/diff', async (c) => {
