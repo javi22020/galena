@@ -21,7 +21,7 @@ export function pickedText(state: EditorState): PickedText | null {
   const first = state.doc.lineAt(from).number
   // A selection that ends at the start of a line does not take that line.
   const end = state.doc.lineAt(to)
-  const last = end.from === to && end.number > first ? end.number - 1 : end.number
+  const last = end.from === to ? end.number - 1 : end.number
   return { text, lines: { from: first, to: last } }
 }
 
