@@ -11,10 +11,11 @@ import {
   type RequestPermissionRequest,
   type RequestPermissionResponse,
   type SessionConfigOption,
+  type SessionModeState,
   type SessionUpdate,
   type WriteTextFileRequest,
 } from '@agentclientprotocol/sdk'
-import { accepts } from '../shared/config'
+import { accepts, MODES_ID, withModes } from '../shared/config'
 import { applyEvent } from '../shared/transcript'
 import type {
   ChatEvent,
@@ -33,8 +34,10 @@ import type { Workspace } from './workspace'
 const AUTH_REQUIRED = -32000
 /** An open chat the user has left alone this long has its ACP session closed. */
 const IDLE_MS = 5 * 60_000
-/** Model and effort last chosen for each agent, by agent id and config id. */
+/** Model, effort and mode the user last picked for each agent, by agent id and config id. */
 const DEFAULTS_FILE = path.join(configDir, 'agent-config.json')
+/** The categories of option a new chat takes from what the user last picked for the agent. */
+const REMEMBERED = new Set(['model', 'thought_level', 'mode'])
 /** Writes to `DEFAULTS_FILE`, one after another. */
 let savingDefaults = Promise.resolve()
 
@@ -168,14 +171,15 @@ export class Sessions implements ChatOwner {
     }
   }
 
-  /** Remembers a model or effort choice for the agent's next chats. */
+  /** Remembers a model, effort or mode choice for the agent's next chats. */
   remember(agentId: string, configId: string, value: string): void {
+    // For this vault's next chats at once: what the file holds was read when the vault opened.
+    this.defaults[agentId] = { ...this.defaults[agentId], [configId]: value }
     // Every Galena running shares the file, so only this value is written over what it holds.
     savingDefaults = savingDefaults
       .then(async () => {
         const defaults = await readJson<Defaults>(DEFAULTS_FILE, {})
         defaults[agentId] = { ...defaults[agentId], [configId]: value }
-        this.defaults = defaults
         await writeJson(DEFAULTS_FILE, defaults)
       })
       .catch((error) => console.error('Could not save agent options:', error))
@@ -216,12 +220,19 @@ export class Session {
   private chat: ChatState
   private seq = 0
   private acpSessionId?: string
+  /** The options the agent last gave, as it gave them. */
+  private options?: SessionConfigOption[] | null
+  /** The agent's session modes, only used if it has no option for the mode. */
+  private modes?: SessionModeState
   /**
    * Option values this chat asked for, by config id: the user's choices and the
-   * agent's remembered defaults. They are applied again whenever the ACP
-   * session opens, as a resumed session may have lost some (effort, say).
+   * agent's remembered defaults, as the agent last changed them on its own.
+   * They are applied again whenever the ACP session opens, as a resumed session
+   * may have lost some (effort, say).
    */
   private chosen: Values
+  /** True while `restore` sets the chosen values, one by one. */
+  private restoring = false
   /** True while `session/load` replays history we already have. */
   private replaying = false
   private waiting = new Map<string, (optionId: string | null) => void>()
@@ -318,7 +329,8 @@ export class Session {
       if (!accepts(option, value)) throw new HttpError(400, `Invalid value for ${option.name}`)
       await this.apply(configId, value)
       this.chosen[configId] = value
-      if (typeof value === 'string' && (option.category === 'model' || option.category === 'thought_level')) {
+      // Only what the user picks is kept for the agent's next chats, not what the agent changes.
+      if (typeof value === 'string' && option.category && REMEMBERED.has(option.category)) {
         this.owner.remember(this.meta.agentId, configId, value)
       }
       this.armIdle()
@@ -327,8 +339,8 @@ export class Session {
 
   /** Takes on remembered option values, applying them now if the session is open. */
   adopt(values: Record<string, string>): void {
-    Object.assign(this.chosen, values)
     void this.run(async () => {
+      Object.assign(this.chosen, values)
       if (this.live) await this.restore()
     })
   }
@@ -370,6 +382,10 @@ export class Session {
 
   onUpdate(update: SessionUpdate): void {
     if (update.sessionUpdate === 'config_option_update') return this.setOptions(update.configOptions)
+    if (update.sessionUpdate === 'current_mode_update') {
+      if (this.modes) this.setMode(update.currentModeId)
+      return
+    }
     if (this.replaying) return
     if (update.sessionUpdate === 'session_info_update' && update.title) {
       this.meta.title = update.title
@@ -483,18 +499,23 @@ export class Session {
       if (this.chat.items.length) this.emit({ type: 'clear' })
       await host.createSession(base, this, (response) => {
         this.acpSessionId = response.sessionId
-        this.setOptions(response.configOptions)
+        this.opened(response)
       })
       return
     }
 
     this.replaying = host.reopenMethod === 'session/load'
     try {
-      const response = await host.reopenSession({ ...base, sessionId }, this)
-      this.setOptions(response.configOptions)
+      this.opened(await host.reopenSession({ ...base, sessionId }, this))
     } finally {
       this.replaying = false
     }
+  }
+
+  /** Takes the modes and options the agent has for the session it just opened. */
+  private opened(response: { modes?: SessionModeState | null; configOptions?: SessionConfigOption[] | null }): void {
+    this.modes = response.modes ?? undefined
+    this.setOptions(response.configOptions)
   }
 
   /** Sets the chosen values the agent does not have, in the agent's order. */
@@ -502,16 +523,21 @@ export class Session {
     // Each option is tried once. The list is read anew every time, since a
     // change may add options (an effort selector for a new model, say).
     const tried = new Set<string>()
-    for (;;) {
-      const option = this.meta.configOptions?.find((o) => {
-        const value = this.chosen[o.id]
-        return !tried.has(o.id) && value !== undefined && value !== o.currentValue && accepts(o, value)
-      })
-      if (!option) return
-      tried.add(option.id)
-      await this.apply(option.id, this.chosen[option.id]!).catch((error) => {
-        console.error(`Could not restore ${option.name}:`, errorMessage(error))
-      })
+    this.restoring = true
+    try {
+      for (;;) {
+        const option = this.meta.configOptions?.find((o) => {
+          const value = this.chosen[o.id]
+          return !tried.has(o.id) && value !== undefined && value !== o.currentValue && accepts(o, value)
+        })
+        if (!option) return
+        tried.add(option.id)
+        await this.apply(option.id, this.chosen[option.id]!).catch((error) => {
+          console.error(`Could not restore ${option.name}:`, errorMessage(error))
+        })
+      }
+    } finally {
+      this.restoring = false
     }
   }
 
@@ -520,6 +546,11 @@ export class Session {
     const host = this.live
     if (!host) throw new Error('The agent is not running')
     const sessionId = this.acpSessionId!
+    // The option Galena made of the agent's modes is set as a mode.
+    if (configId === MODES_ID && typeof value === 'string') {
+      await host.request('session/set_mode', { sessionId, modeId: value })
+      return this.setMode(value)
+    }
     const { configOptions } = await host.request(
       'session/set_config_option',
       typeof value === 'boolean' ? { sessionId, configId, type: 'boolean', value } : { sessionId, configId, value },
@@ -527,15 +558,23 @@ export class Session {
     this.setOptions(configOptions)
   }
 
-  /** Takes the agent's full list of options and their current values. */
+  /** Takes the agent's session mode, if it has no option for the mode. */
+  private setMode(currentModeId: string): void {
+    this.modes = { ...this.modes!, currentModeId }
+    this.setOptions(this.options)
+  }
+
+  /** Takes the agent's full list of options and their current values, with its modes (see `withModes`). */
   private setOptions(options: SessionConfigOption[] | null | undefined): void {
     if (!this.live) return
-    this.meta.configOptions = options ?? undefined
-    // Follow changes the agent makes on its own (leaving plan mode, say), but
-    // not while opening: a resumed session may report a default for a value it
-    // lost, which restore() puts back.
-    if (this.meta.status === 'ready' || this.meta.status === 'running') {
-      for (const option of options ?? []) {
+    this.options = options
+    const published = (this.meta.configOptions = withModes(options ?? [], this.modes))
+    // Follow changes the agent makes on its own (leaving plan mode, say), so
+    // that reopening the chat does not undo them, but not while opening or
+    // restoring: the agent then reports values restore() has yet to put back,
+    // such as the default a resumed session has for a value it lost.
+    if (!this.restoring && (this.meta.status === 'ready' || this.meta.status === 'running')) {
+      for (const option of published) {
         if (option.id in this.chosen) this.chosen[option.id] = option.currentValue
       }
     }

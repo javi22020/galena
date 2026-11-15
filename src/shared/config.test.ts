@@ -1,6 +1,6 @@
-import type { SessionConfigOption } from '@agentclientprotocol/sdk'
+import type { SessionConfigOption, SessionModeState } from '@agentclientprotocol/sdk'
 import { expect, test } from 'vitest'
-import { accepts, type SelectOption } from './config'
+import { accepts, MODES_ID, withModes, type SelectOption } from './config'
 
 const flat: SelectOption = {
   type: 'select',
@@ -42,4 +42,39 @@ test('accepts takes only a value of the type of the option', () => {
 test('accepts takes nothing for a type of option Galena does not know', () => {
   const unknown = { type: 'number', id: 'n', name: 'Number', currentValue: 1 } as unknown as SessionConfigOption
   expect(accepts(unknown, '1')).toBe(false)
+})
+
+const modes: SessionModeState = {
+  currentModeId: 'ask',
+  availableModes: [
+    { id: 'ask', name: 'Ask', description: 'Asks before editing' },
+    { id: 'code', name: 'Code' },
+  ],
+}
+
+test('withModes turns the session modes into an option, if the agent has none for the mode', () => {
+  expect(withModes([flat], modes)).toStrictEqual([
+    flat,
+    {
+      type: 'select',
+      id: MODES_ID,
+      name: 'Mode',
+      category: 'mode',
+      currentValue: 'ask',
+      options: [
+        { value: 'ask', name: 'Ask', description: 'Asks before editing' },
+        { value: 'code', name: 'Code', description: undefined },
+      ],
+    },
+  ])
+})
+
+test('withModes ignores the session modes of an agent with an option for the mode', () => {
+  const own: SelectOption = { ...flat, id: 'permissions', category: 'mode', currentValue: 'high' }
+  expect(withModes([own], modes)).toStrictEqual([own])
+})
+
+test('withModes leaves the options as they are for an agent without session modes', () => {
+  expect(withModes([flat], undefined)).toStrictEqual([flat])
+  expect(withModes([flat], null)).toStrictEqual([flat])
 })

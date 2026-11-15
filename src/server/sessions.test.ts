@@ -1,6 +1,17 @@
-import type { PermissionOption } from '@agentclientprotocol/sdk'
-import { expect, test } from 'vitest'
+import {
+  agent,
+  RequestError,
+  type AgentApp,
+  type AgentContext,
+  type PermissionOption,
+  type SessionConfigOption,
+  type SessionModeState,
+  type SessionUpdate,
+} from '@agentclientprotocol/sdk'
+import { expect, test, vi } from 'vitest'
+import { MODES_ID } from '../shared/config'
 import type { ServerEvent, Settings } from '../shared/types'
+import { AgentHost } from './agents'
 import { Session, type ChatOwner } from './sessions'
 
 const NOTE = lines('one', 'two', 'three', 'four')
@@ -9,8 +20,16 @@ function lines(...text: string[]): string {
   return text.join('\n')
 }
 
-/** A chat that is not connected to any agent, in a workspace that only records what it is told. */
-function chat(defaultPermission: Settings['defaultPermission'] = 'ask') {
+/**
+ * A chat in a workspace that only records what it is told, connected to `host`
+ * if given and otherwise to no agent, and stored as `from` says.
+ */
+function chat(
+  defaultPermission: Settings['defaultPermission'] = 'ask',
+  host?: AgentHost,
+  from: Partial<ConstructorParameters<typeof Session>[1]> = {},
+) {
+  const remembered: string[] = []
   const events: ServerEvent[] = []
   const written: string[] = []
   const workspace: ChatOwner['workspace'] = {
@@ -27,17 +46,18 @@ function chat(defaultPermission: Settings['defaultPermission'] = 'ask') {
     },
     changes: { write: async (rel: string) => void written.push(rel) },
   }
-  const stored = { meta: { id: 'chat', agentId: 'agent', title: 'New chat', updatedAt: 0 }, items: [] }
+  const stored = { meta: { id: 'chat', agentId: 'agent', title: 'New chat', updatedAt: 0 }, items: [], ...from }
   const owner: ChatOwner = {
     workspace,
     agent: async () => {
-      throw new Error('This chat has no agent')
+      if (!host) throw new Error('This chat has no agent')
+      return host
     },
-    remember: () => {},
+    remember: (_agentId, configId, value) => void remembered.push(`${configId}=${value}`),
     retryAuth: () => {},
   }
   const session = new Session(owner, stored, 'chat.json')
-  return { session, events, written }
+  return { session, events, written, remembered }
 }
 
 const write = (session: Session, path: string) => session.writeFile({ sessionId: 'acp', path, content: 'new' })
@@ -217,4 +237,163 @@ test('the agent reads a whole note, or the lines it asks for, counted from 1', a
   expect(await read({ limit: 1 })).toBe('one')
   expect(await read({ line: 4, limit: 10 })).toBe('four')
   expect(await read({ line: 9 })).toBe('')
+})
+
+/** Galena's own agent host, connected to `fake`, an agent in this process, instead of a process. */
+const hostOf = (fake: AgentApp) =>
+  AgentHost.open({ connect: (app) => app.connect(fake), exited: new Promise(() => {}), stop() {} }, () => {})
+
+const MODES: SessionModeState = {
+  currentModeId: 'ask',
+  availableModes: [
+    { id: 'ask', name: 'Ask' },
+    { id: 'code', name: 'Code' },
+  ],
+}
+
+/** An agent's own option for the mode, as Claude's adapter offers it next to its session modes. */
+const modeOption = (currentValue: string): SessionConfigOption => ({
+  type: 'select',
+  id: 'mode',
+  name: 'Mode',
+  category: 'mode',
+  currentValue,
+  options: MODES.availableModes.map((m) => ({ value: m.id, name: m.name })),
+})
+
+interface FakeAgent {
+  /** The agent's own options, once `configId` is set to `value`; without them it only offers session modes. */
+  options?: (value: string, configId?: string) => SessionConfigOption[]
+  /** The agent refuses every mode it is asked to set. */
+  refuse?: boolean
+  /** The chat was used before, in a session the agent resumes, and in the mode it chose then. */
+  resumedIn?: string
+}
+
+/**
+ * A chat open in an agent that offers `MODES`, with the requests it sent the
+ * agent, the options it remembered for the agent's next chats, and a way for
+ * the agent to tell it about the session.
+ */
+async function inAgent({ options, refuse = false, resumedIn }: FakeAgent = {}) {
+  const sent: [string, unknown][] = []
+  let client: AgentContext | undefined
+  const opened = { modes: MODES, configOptions: options?.('ask') }
+  const fake = agent()
+    .onConnect((connection) => void (client = connection.client))
+    .onRequest('initialize', ({ params }) => ({
+      protocolVersion: params.protocolVersion,
+      agentCapabilities: { sessionCapabilities: { resume: {} } },
+    }))
+    .onRequest('session/new', () => ({ sessionId: 'acp', ...opened }))
+    .onRequest('session/resume', () => opened)
+    .onRequest('session/set_mode', ({ params }) => {
+      sent.push(['session/set_mode', params])
+      if (refuse) throw RequestError.invalidParams(undefined, 'No such mode')
+      return {}
+    })
+    .onRequest('session/set_config_option', ({ params }) => {
+      sent.push(['session/set_config_option', params])
+      return { configOptions: options?.(String(params.value), params.configId) ?? [] }
+    })
+  const stored = resumedIn
+    ? { acpSessionId: 'acp', items: [{ type: 'agent' as const, text: 'Hi' }], chosen: { [MODES_ID]: resumedIn } }
+    : {}
+  const { session, events, remembered } = chat('ask', await hostOf(fake), stored)
+  await session.start()
+  const update = (update: SessionUpdate) => client!.notify('session/update', { sessionId: 'acp', update })
+  return { session, events, sent, remembered, update }
+}
+
+const mode = (session: Session) => session.meta.configOptions?.find((o) => o.category === 'mode')?.currentValue
+
+test('the mode shown follows the mode the agent says it changed to', async () => {
+  const { session, events, update } = await inAgent()
+  expect(mode(session)).toBe('ask')
+  await update({ sessionUpdate: 'current_mode_update', currentModeId: 'code' })
+  await vi.waitFor(() => expect(mode(session)).toBe('code'))
+  // Shown as an option, not in the transcript.
+  expect(events.filter((event) => event.type === 'chat')).toStrictEqual([])
+})
+
+test('picking the mode of an agent that only has modes sets it as a mode, for its next chats too', async () => {
+  const { session, sent, remembered } = await inAgent()
+  await session.setConfig(MODES_ID, 'code')
+  expect(sent).toStrictEqual([['session/set_mode', { sessionId: 'acp', modeId: 'code' }]])
+  expect(mode(session)).toBe('code')
+  expect(remembered).toStrictEqual([`${MODES_ID}=code`])
+})
+
+test('a mode the agent refuses fails to be picked and is not shown or kept', async () => {
+  const { session, remembered } = await inAgent({ refuse: true })
+  await expect(session.setConfig(MODES_ID, 'code')).rejects.toThrow('No such mode')
+  expect(mode(session)).toBe('ask')
+  expect(remembered).toStrictEqual([])
+})
+
+test('a mode the agent moves to on its own is shown, but its next chats start in the one that was picked', async () => {
+  const { session, remembered, update } = await inAgent()
+  await session.setConfig(MODES_ID, 'code')
+  await update({ sessionUpdate: 'current_mode_update', currentModeId: 'ask' })
+  await vi.waitFor(() => expect(mode(session)).toBe('ask'))
+  expect(remembered).toStrictEqual([`${MODES_ID}=code`])
+})
+
+test('an agent with its own option for the mode has it set as an option, not as a mode', async () => {
+  const { session, sent } = await inAgent({ options: (value) => [modeOption(value)] })
+  await session.setConfig('mode', 'code')
+  expect(sent).toStrictEqual([['session/set_config_option', { sessionId: 'acp', configId: 'mode', value: 'code' }]])
+  expect(session.meta.configOptions).toStrictEqual([modeOption('code')])
+})
+
+test('a resumed chat shows the agent modes again and is put back in the mode it was in', async () => {
+  const { session, sent } = await inAgent({ resumedIn: 'code' })
+  expect(sent).toStrictEqual([['session/set_mode', { sessionId: 'acp', modeId: 'code' }]])
+  expect(mode(session)).toBe('code')
+})
+
+test('a mode the agent moves to on its own after the chat is put back is not undone when it reopens', async () => {
+  const { session, sent, update } = await inAgent({ resumedIn: 'code' })
+  await update({ sessionUpdate: 'current_mode_update', currentModeId: 'ask' })
+  await vi.waitFor(() => expect(mode(session)).toBe('ask'))
+  session.detach()
+  await session.start()
+  // Only the set_mode of the first opening: the agent resumes in 'ask', the mode it moved to.
+  expect(sent).toStrictEqual([['session/set_mode', { sessionId: 'acp', modeId: 'code' }]])
+})
+
+/** The options of an agent with a model and an effort of its own, which change only as it is asked. */
+function modelAndEffort(): NonNullable<FakeAgent['options']> {
+  const current: Record<string, string> = { model: 'sonnet', effort: 'low' }
+  const pick = (id: string, category: string, ...values: string[]): SessionConfigOption => ({
+    type: 'select',
+    id,
+    name: id,
+    category,
+    currentValue: current[id]!,
+    options: values.map((value) => ({ value, name: value })),
+  })
+  return (value, configId) => {
+    if (configId) current[configId] = value
+    return [pick('model', 'model', 'sonnet', 'opus'), pick('effort', 'thought_level', 'low', 'high')]
+  }
+}
+
+const setOption = (configId: string, value: string) => ['session/set_config_option', { sessionId: 'acp', configId, value }]
+
+test('a chat that is open takes on every option remembered for the agent', async () => {
+  const { session, sent } = await inAgent({ options: modelAndEffort() })
+  session.adopt({ model: 'opus', effort: 'high' })
+  await session.start() // runs once the options are taken on
+  // The answer to the first still has the old value of the second: that is not the agent changing it.
+  expect(sent).toStrictEqual([setOption('model', 'opus'), setOption('effort', 'high')])
+})
+
+test('options remembered while another is being picked are still taken on', async () => {
+  const { session, sent } = await inAgent({ options: modelAndEffort() })
+  const picked = session.setConfig('model', 'opus')
+  session.adopt({ effort: 'high' })
+  await picked
+  await session.start()
+  expect(sent).toStrictEqual([setOption('model', 'opus'), setOption('effort', 'high')])
 })

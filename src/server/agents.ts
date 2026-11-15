@@ -40,6 +40,7 @@ const TIMEOUTS = {
   'session/resume': 60_000,
   'session/load': 120_000,
   'session/set_config_option': 30_000,
+  'session/set_mode': 30_000,
   'session/close': 10_000,
 } satisfies Partial<Record<AgentRequestMethod, number>>
 

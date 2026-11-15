@@ -22,16 +22,19 @@ import { showError } from '../store'
 import { Picker, PickerItems, type PickerOption } from './Picker'
 
 /**
- * The options the agent offers for this chat, as ACP describes them: the model
- * and the effort at hand, everything else in a menu. What is shown is always
- * what the server last reported, so a change appears once the agent accepts it.
+ * The options the agent offers for this chat, as ACP describes them: the mode,
+ * the model and the effort at hand, everything else in a menu. What is shown is
+ * always what the server last reported, so a change appears once the agent
+ * accepts it.
  */
 export function ConfigOptions({ session }: { session: SessionMeta }) {
   const options = session.configOptions ?? []
+  const mode = options.find((o): o is SelectOption => o.type === 'select' && o.category === 'mode')
   const model = options.find((o): o is SelectOption => o.type === 'select' && o.category === 'model')
   const effort = options.find((o): o is SelectOption => o.type === 'select' && o.category === 'thought_level')
   // ACP says to ignore options of an unknown type.
-  const rest = options.filter((o) => o !== model && o !== effort && (o.type === 'select' || o.type === 'boolean'))
+  const atHand: SessionConfigOption[] = [mode, model, effort].filter((o) => o !== undefined)
+  const rest = options.filter((o) => !atHand.includes(o) && (o.type === 'select' || o.type === 'boolean'))
 
   const change = (option: SessionConfigOption, value: string | boolean) => {
     if (value !== option.currentValue) api.setConfig(session.id, option.id, value).catch(showError)
@@ -39,6 +42,16 @@ export function ConfigOptions({ session }: { session: SessionMeta }) {
 
   return (
     <>
+      {mode && (
+        <Picker
+          label={mode.name}
+          variant="ghost"
+          size="xs"
+          value={mode.currentValue}
+          options={pickerOptions(mode)}
+          onChange={(value) => change(mode, value)}
+        />
+      )}
       {model && <ModelPicker option={model} onChange={(value) => change(model, value)} />}
       {effort && (
         <Picker
@@ -156,7 +169,7 @@ interface MoreOptionsProps {
   onChange: (option: SessionConfigOption, value: string | boolean) => void
 }
 
-/** The agent's other options (mode, speed…), in the order it gives them. */
+/** The agent's other options (speed, say), in the order it gives them. */
 function MoreOptions({ options, onChange }: MoreOptionsProps) {
   return (
     <DropdownMenu>

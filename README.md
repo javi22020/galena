@@ -36,9 +36,10 @@ the Git already on your machine, if there is one.
   command that starts it in ACP mode, and chat with them about your vault:
   streaming answers, tool calls, plans and permission requests. Mention notes
   with `@`, attach the open note, or send the current selection with
-  Ctrl/Cmd+L. Pick the model, the effort and whatever else the agent offers;
-  new chats keep the last model and effort chosen for each agent. Permission
-  requests can be asked every time, always allowed or always rejected.
+  Ctrl/Cmd+L. Pick the mode, the model, the effort and whatever else the agent
+  offers; new chats keep the last mode, model and effort chosen for each agent.
+  Permission requests can be asked every time, always allowed or always
+  rejected.
 - **Reviewable edits.** Files an agent writes through ACP are recorded as
   changes you can accept or reject, per file or all at once.
 - **Git.** A Git tab next to the files can initialize a repository for the
