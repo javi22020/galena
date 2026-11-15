@@ -62,7 +62,7 @@ pnpm install
 GALENA_VAULT=/path/to/a/vault pnpm dev   # Vite + the API, with hot reload
 pnpm build                               # dist/cli.mjs and dist/client
 pnpm typecheck
-pnpm test                                # node --test, no extra tooling
+pnpm test                                # Vitest, unit tests only
 ```
 
 In PowerShell, set the vault with `$env:GALENA_VAULT = 'C:\path\to\a\vault'`

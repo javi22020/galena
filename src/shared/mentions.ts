@@ -1,8 +1,7 @@
 // @-mentions in the message box. The text decides what is attached: a note
 // stays attached while its `@label` is in the message, and goes once it is not.
 
-// The extension lets `node --test` load this file as it is.
-import { noteName } from './links.ts'
+import { noteName } from './links'
 import type { Entry } from './types'
 
 /**

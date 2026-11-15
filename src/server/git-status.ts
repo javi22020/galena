@@ -1,5 +1,4 @@
-// The parts of the Git integration that only transform text. They import
-// nothing at run time, so `node --test` can load this file as it is.
+// The parts of the Git integration that only transform text.
 
 import type { GitFile } from '../shared/types'
 
