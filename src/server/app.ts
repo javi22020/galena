@@ -7,7 +7,7 @@ import type { WSContext } from 'hono/ws'
 import type {
   AppState,
   ContextRef,
-  Entry,
+  NewEntryType,
   GitAction,
   GitResolution,
   GitStatus,
@@ -141,7 +141,7 @@ export async function createGalena(options: GalenaOptions): Promise<Galena> {
 
   app.post('/api/file', async (c) => {
     const body = await c.req.json()
-    const type: Entry['type'] = body.type === 'dir' ? 'dir' : 'file'
+    const type: NewEntryType = body.type === 'dir' ? 'dir' : 'file'
     await current().vault.create(text(body.path, 'path'), type)
     return c.json({})
   })

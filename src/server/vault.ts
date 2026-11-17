@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import type { Entry } from '../shared/types'
+import type { Entry, NewEntryType } from '../shared/types'
+import { imageType } from './images'
 import { exists, hasCode, HttpError } from './util'
 
 /**
@@ -45,7 +46,7 @@ export class Vault {
     return segments.join('/')
   }
 
-  /** All folders and notes, parents before children. */
+  /** All folders, notes and images, parents before children. */
   async list(): Promise<Entry[]> {
     const entries: Entry[] = []
     const walk = async (dir: string): Promise<void> => {
@@ -57,6 +58,8 @@ export class Vault {
           await walk(rel)
         } else if (item.isFile() && rel.endsWith('.md')) {
           entries.push({ path: rel, type: 'file' })
+        } else if (item.isFile() && imageType(rel)) {
+          entries.push({ path: rel, type: 'asset' })
         }
       }
     }
@@ -86,7 +89,7 @@ export class Vault {
     await writeFile(abs, content)
   }
 
-  async create(rel: string, type: Entry['type']): Promise<void> {
+  async create(rel: string, type: NewEntryType): Promise<void> {
     const abs = this.resolve(rel)
     if (await exists(abs)) throw new HttpError(409, `Already exists: ${rel}`)
     if (type === 'dir') {

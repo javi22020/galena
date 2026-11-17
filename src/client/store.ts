@@ -12,6 +12,7 @@ import {
   type GitAction,
   type GitFile,
   type GitStatus,
+  type NewEntryType,
   type ServerEvent,
   type SessionMeta,
   type Settings,
@@ -54,6 +55,8 @@ interface State {
   gitBusy: boolean
   /** The changed file whose diff or conflict is on screen. */
   gitFile: string | null
+  /** The image the explorer is showing. */
+  imageFile: string | null
 
   tabs: Tab[]
   active: number | null
@@ -81,7 +84,7 @@ interface State {
 
 export type Drawer = 'explorer' | 'agent'
 
-export type ModalName = 'palette' | 'graph' | 'settings' | 'folders' | 'new-vault' | 'diff' | 'conflict'
+export type ModalName = 'palette' | 'graph' | 'settings' | 'folders' | 'new-vault' | 'diff' | 'conflict' | 'image'
 
 const emptyChat = { seq: 0, items: [], permissions: [] }
 
@@ -90,6 +93,7 @@ const emptyVault = {
   git: null,
   gitBusy: false,
   gitFile: null,
+  imageFile: null,
   tabs: [],
   active: null,
   reveal: null,
@@ -138,6 +142,10 @@ export function showError(error: unknown): void {
 
 export function setModal(modal: State['modal']): void {
   set({ modal })
+}
+
+export function showImage(path: string): void {
+  set({ imageFile: path, modal: 'image' })
 }
 
 // Startup and connection
@@ -259,11 +267,17 @@ export async function followLink(target: string): Promise<void> {
   else await createEntry(`${target.replace(/\.md$/i, '')}.md`, 'file').catch(showError)
 }
 
+/** The tab on screen, if any. */
+export function activeTab(): Tab | undefined {
+  const { tabs, active } = get()
+  return tabs.find((tab) => tab.id === active)
+}
+
 export function patchTab(id: number, patch: Partial<Tab>): void {
   set({ tabs: get().tabs.map((tab) => (tab.id === id ? { ...tab, ...patch } : tab)) })
 }
 
-export async function createEntry(path: string, type: Entry['type']): Promise<void> {
+export async function createEntry(path: string, type: NewEntryType): Promise<void> {
   await api.create(path, type)
   if (type === 'file') openNote(path)
 }

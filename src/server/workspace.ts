@@ -4,6 +4,7 @@ import { watch, type FSWatcher } from 'chokidar'
 import { codeFonts, textFonts } from '../shared/fonts'
 import { defaultSettings, type ServerEvent, type Settings } from '../shared/types'
 import { Git } from './git'
+import { imageType } from './images'
 import { NoteIndex } from './notes'
 import { Sessions } from './sessions'
 import { readJson, writeJson } from './util'
@@ -78,11 +79,13 @@ export class Workspace {
       if (path.basename(abs) === '.gitignore') return // a hidden path, which the vault refuses
       const rel = this.vault.relative(abs)
       const isDir = event === 'addDir' || event === 'unlinkDir'
-      if (!isDir && !rel.endsWith('.md')) return
+      const isNote = !isDir && rel.endsWith('.md')
+      // Images are not indexed, but the explorer lists them.
+      if (!isDir && !isNote && !imageType(rel)) return
       queue = queue
         .then(async () => {
           if (event === 'unlink') this.index.remove(rel)
-          else if (!isDir) await this.index.update(rel)
+          else if (isNote) await this.index.update(rel)
           this.broadcast({ type: 'fs', event, path: rel })
         })
         .catch((error) => console.error(`Could not index ${rel}:`, error))

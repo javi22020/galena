@@ -42,11 +42,12 @@ export function pruneMentions<T extends { mention?: string }>(text: string, refs
 /**
  * Entries matching what was typed after `@`: names that start with it first,
  * then names that contain it, then paths that contain it. Notes come before
- * folders within each group.
+ * folders within each group; images are left out.
  */
 export function rankMentions(entries: readonly Entry[], query: string, limit = 8): Entry[] {
   const q = query.toLowerCase()
   const rank = (entry: Entry) => {
+    if (entry.type === 'asset') return -1
     const name = noteName(entry.path).toLowerCase()
     const group = name.startsWith(q) ? 0 : name.includes(q) ? 1 : entry.path.toLowerCase().includes(q) ? 2 : -1
     return group < 0 ? -1 : group * 2 + (entry.type === 'dir' ? 1 : 0)

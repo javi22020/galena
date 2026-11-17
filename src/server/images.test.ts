@@ -10,6 +10,7 @@ const scratch = await mkdtemp(path.join(tmpdir(), 'galena-images-'))
 vi.stubEnv('XDG_CONFIG_HOME', path.join(scratch, 'config'))
 const { createGalena } = await import('./app')
 const { imageType, MAX_IMAGE_SIZE } = await import('./images')
+const { Vault } = await import('./vault')
 
 const root = path.join(scratch, 'vault')
 await mkdir(path.join(root, 'pics'), { recursive: true })
@@ -158,6 +159,18 @@ test('whatever is in an image, it is served as that image and sandboxed', async 
     expect(response.headers.get('x-content-type-options')).toBe('nosniff')
     expect(response.headers.get('content-security-policy')).toBe('sandbox')
   }
+})
+
+test('the vault lists images as assets, apart from notes, and leaves other files out', async () => {
+  await writeFile(path.join(root, 'listed.md'), '# Note')
+  await writeFile(path.join(root, 'pics/Photo.JPG'), PNG)
+  await writeFile(path.join(root, 'pics/logo.svg'), SVG)
+  await writeFile(path.join(root, 'pics/data.csv'), 'a,b')
+  const entries = await (await Vault.open(root)).list()
+  expect(entries).toContainEqual({ path: 'listed.md', type: 'file' })
+  expect(entries).toContainEqual({ path: 'pics/Photo.JPG', type: 'asset' })
+  expect(entries).toContainEqual({ path: 'pics/logo.svg', type: 'asset' })
+  expect(entries.some((entry) => entry.path === 'pics/data.csv')).toBe(false)
 })
 
 test('both sides of a changed image can be shown, and only of a changed file', async () => {

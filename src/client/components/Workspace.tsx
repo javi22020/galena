@@ -18,6 +18,7 @@ import { Editor } from './Editor'
 import { GitDiff } from './GitDiff'
 import { GraphView } from './Graph'
 import { IconButton } from './IconButton'
+import { ImageView } from './ImageView'
 import { MergeResolver } from './MergeResolver'
 import { Palette } from './Palette'
 import { Settings } from './Settings'
@@ -173,6 +174,7 @@ export function Workspace() {
       <Settings />
       <GitDiff />
       <MergeResolver />
+      <ImageView />
     </div>
   )
 }

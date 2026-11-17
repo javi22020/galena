@@ -11,6 +11,7 @@ import type {
   GitStatus,
   Graph,
   LineMatch,
+  NewEntryType,
   SessionDetail,
   SessionMeta,
   Settings,
@@ -25,11 +26,13 @@ export class ApiError extends Error {
   }
 }
 
+/** A file in the body is sent as it is; anything else as JSON. */
 async function request<T = void>(method: string, path: string, body?: unknown): Promise<T> {
+  const json = body !== undefined && !(body instanceof Blob)
   const response = await fetch(`/api/${path}`, {
     method,
-    headers: body === undefined ? undefined : { 'content-type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    headers: json ? { 'content-type': 'application/json' } : undefined,
+    body: json ? JSON.stringify(body) : (body as Blob | undefined),
   })
   const data = await response.json().catch(() => ({}))
   if (!response.ok) throw new ApiError(response.status, data.error ?? response.statusText)
@@ -56,9 +59,15 @@ export const api = {
   read: (path: string) =>
     request<{ content: string }>('GET', `file?${query({ path })}`).then((file) => file.content),
   write: (path: string, content: string) => request('PUT', 'file', { path, content }),
-  create: (path: string, type: Entry['type']) => request('POST', 'file', { path, type }),
+  create: (path: string, type: NewEntryType) => request('POST', 'file', { path, type }),
   move: (from: string, to: string) => request('POST', 'move', { from, to }),
   remove: (path: string) => request('DELETE', `file?${query({ path })}`),
+
+  /** Where the browser loads an image of the vault from. */
+  imageUrl: (path: string) => `/api/image?${query({ path })}`,
+  /** Stores an image in the vault's `assets/` folder; answers with the path it was given. */
+  uploadImage: (file: File) =>
+    request<{ path: string }>('POST', `image?${query({ name: file.name })}`, file).then((image) => image.path),
 
   backlinks: (path: string) => request<LineMatch[]>('GET', `backlinks?${query({ path })}`),
   graph: () => request<Graph>('GET', 'graph'),
@@ -70,6 +79,8 @@ export const api = {
   agents: () => request<AgentInfo[]>('GET', 'agents'),
 
   gitDiff: (path: string) => request<GitDiff>('GET', `git/diff?${query({ path })}`),
+  /** Where the browser loads a changed image from, as it was in the last commit or as it is now. */
+  gitImageUrl: (path: string, side: 'before' | 'after') => `/api/git/image?${query({ path, side })}`,
   gitConflict: (path: string) => request<GitConflict>('GET', `git/conflict?${query({ path })}`),
   /** Answers with the status the action leaves. */
   gitRun: <A extends GitAction>(action: A, ...[body]: GitBody<A>) =>

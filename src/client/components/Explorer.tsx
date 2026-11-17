@@ -1,4 +1,4 @@
-import { ChevronRight, File } from 'lucide-react'
+import { ChevronRight, File, FileImage } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import {
   useEffect,
@@ -20,9 +20,16 @@ import {
 import { collapse, enter, stagger } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 import { noteName, parentOf } from '../../shared/links'
-import type { Entry } from '../../shared/types'
-import { ancestors, createEntry, movePath, openNote, removePath, showError, useStore } from '../store'
+import type { Entry, NewEntryType } from '../../shared/types'
+import { ancestors, createEntry, movePath, openNote, removePath, showError, showImage, useStore } from '../store'
 import { ConfirmDialog, type Confirmation } from './ConfirmDialog'
+
+/** What deleting an entry of each type moves to the trash. */
+const DELETED: Record<Entry['type'], string> = {
+  dir: 'folder and everything in it are',
+  file: 'note is',
+  asset: 'image is',
+}
 
 interface Node {
   entry: Entry
@@ -31,17 +38,21 @@ interface Node {
 }
 
 /** What the inline text field is for: a new entry inside `parent`, or a rename. */
-type Draft = { parent: string; type: Entry['type'] } | { rename: Entry }
+type Draft = { parent: string; type: NewEntryType } | { rename: Entry }
 
 const indent = (depth: number) => ({ paddingLeft: 8 + depth * 16 })
 
 /** What the sidebar's own buttons can ask of the tree. */
 export interface ExplorerHandle {
   /** Starts naming a new note or folder at the vault root. */
-  create(type: Entry['type']): void
+  create(type: NewEntryType): void
 }
 
-/** Folder and note tree with create, rename, move (drag and drop) and delete. */
+/**
+ * Folder and note tree with create, rename, move (drag and drop) and delete.
+ * Images are listed too, but not renamed or moved: nothing would update the
+ * links to them.
+ */
 export function Explorer({ ref }: { ref?: Ref<ExplorerHandle> }) {
   const entries = useStore((s) => s.entries)
   const activePath = useStore((s) => s.tabs.find((t) => t.id === s.active)?.path)
@@ -66,7 +77,7 @@ export function Explorer({ ref }: { ref?: Ref<ExplorerHandle> }) {
     if (activePath) expand(ancestors(activePath))
   }, [activePath])
 
-  const startCreate = (parent: string, type: Entry['type']) => {
+  const startCreate = (parent: string, type: NewEntryType) => {
     if (parent) expand([...ancestors(parent), parent])
     setDraft({ parent, type })
   }
@@ -94,7 +105,7 @@ export function Explorer({ ref }: { ref?: Ref<ExplorerHandle> }) {
   const remove = (entry: Entry) =>
     setConfirmation({
       title: `Delete "${noteName(entry.path)}"?`,
-      description: `The ${entry.type === 'dir' ? 'folder and everything in it are' : 'note is'} moved to .galena/trash.`,
+      description: `The ${DELETED[entry.type]} moved to .galena/trash.`,
       action: 'Delete',
       run: () => removePath(entry.path).catch(showError),
     })
@@ -132,6 +143,7 @@ export function Explorer({ ref }: { ref?: Ref<ExplorerHandle> }) {
           return <div key={path}>{renderDraft(depth)}</div>
         }
         const dir = type === 'dir'
+        const asset = type === 'asset'
         const open = expanded.has(path)
         const active = path === activePath
         return (
@@ -144,11 +156,11 @@ export function Explorer({ ref }: { ref?: Ref<ExplorerHandle> }) {
                 (active || dir) && 'font-medium',
               )}
               style={indent(depth)}
-              draggable
+              draggable={!asset}
               onDragStart={(e) => e.dataTransfer.setData('text/galena-path', path)}
               onDragOver={dir ? (e) => e.preventDefault() : undefined}
               onDrop={dir ? (e) => onDrop(e, path) : undefined}
-              onClick={() => (dir ? toggle(path) : openNote(path))}
+              onClick={() => (dir ? toggle(path) : asset ? showImage(path) : openNote(path))}
             >
               {dir ? (
                 <ChevronRight
@@ -157,6 +169,8 @@ export function Explorer({ ref }: { ref?: Ref<ExplorerHandle> }) {
                     open && 'rotate-90',
                   )}
                 />
+              ) : asset ? (
+                <FileImage className="size-3.5 shrink-0 text-muted-foreground" />
               ) : (
                 <File className="size-3.5 shrink-0 text-muted-foreground" />
               )}
@@ -211,7 +225,9 @@ export function Explorer({ ref }: { ref?: Ref<ExplorerHandle> }) {
           {target && (
             <>
               <ContextMenuSeparator />
-              <ContextMenuItem onSelect={() => setDraft({ rename: target })}>Rename</ContextMenuItem>
+              {target.type !== 'asset' && (
+                <ContextMenuItem onSelect={() => setDraft({ rename: target })}>Rename</ContextMenuItem>
+              )}
               <ContextMenuItem variant="destructive" onSelect={() => remove(target)}>
                 Delete
               </ContextMenuItem>
@@ -282,7 +298,7 @@ function buildTree(entries: Entry[]): Node[] {
   for (const nodes of folders.values()) {
     nodes.sort(
       (a, b) =>
-        Number(a.entry.type === 'file') - Number(b.entry.type === 'file') ||
+        Number(a.entry.type !== 'dir') - Number(b.entry.type !== 'dir') ||
         collator.compare(a.name, b.name),
     )
   }
