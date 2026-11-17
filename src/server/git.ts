@@ -5,6 +5,7 @@ import path from 'node:path'
 import { watch, type FSWatcher } from 'chokidar'
 import type { GitConflict, GitDiff, GitFile, GitResolution, GitStatus } from '../shared/types'
 import { defaultMessage, excludeRules, failureText, isSafeRemote, parseStatus } from './git-status'
+import { imageType } from './images'
 import { errorMessage, exists, hasCode, HttpError } from './util'
 import type { Workspace } from './workspace'
 
@@ -22,7 +23,7 @@ interface Repo {
 
 interface Output {
   code: number
-  stdout: Buffer
+  stdout: Buffer<ArrayBuffer>
   stderr: string
 }
 
@@ -133,17 +134,21 @@ export class Git {
 
   async diff(rel: string): Promise<GitDiff> {
     const file = this.file(rel)
-    const [before, after] = await Promise.all([
-      // A file that is not in the last commit after all just shows as new.
-      file.status === 'added' ? null : this.blob(`HEAD:./${file.from ?? file.path}`).catch(() => null),
-      file.status === 'deleted' ? null : readFile(this.resolve(file.path)).catch(() => null),
-    ])
+    const [before, after] = await Promise.all([this.version(file, 'before'), this.version(file, 'after')])
     const binary = isBinary(before) || isBinary(after)
     return {
       before: binary ? null : (before?.toString() ?? null),
       after: binary ? null : (after?.toString() ?? null),
       binary,
+      image: binary && imageType(rel) !== null,
     }
+  }
+
+  /** One side of a changed file, as it is: for showing an image. */
+  async raw(rel: string, side: 'before' | 'after'): Promise<Buffer<ArrayBuffer>> {
+    const content = await this.version(this.file(rel), side)
+    if (!content) throw new HttpError(404, `No ${side} side: ${rel}`)
+    return content
   }
 
   /**
@@ -489,6 +494,15 @@ export class Git {
     throw new HttpError(409, reasons[this.status.state])
   }
 
+  /** A changed file as the last commit has it, or as it is now; null where it does not exist. */
+  private async version(file: GitFile, side: 'before' | 'after'): Promise<Buffer<ArrayBuffer> | null> {
+    // A file that is not in the last commit after all just shows as new.
+    if (side === 'before') {
+      return file.status === 'added' ? null : this.blob(`HEAD:./${file.from ?? file.path}`).catch(() => null)
+    }
+    return file.status === 'deleted' ? null : readFile(this.resolve(file.path)).catch(() => null)
+  }
+
   /** The changed file at a path the browser sent; nothing else can be touched. */
   private file(rel: string, status?: GitFile['status']): GitFile {
     const file = this.status.files.find((candidate) => candidate.path === rel)
@@ -654,7 +668,7 @@ export class Git {
   }
 
   /** A file as a commit or the index has it: `HEAD:./a.md`, `:2:./a.md`. */
-  private async blob(object: string): Promise<Buffer> {
+  private async blob(object: string): Promise<Buffer<ArrayBuffer>> {
     const result = await run(this.cwd, ['show', object])
     if (result.code === 0) return result.stdout
     throw new HttpError(409, failureText('show', result.stderr))

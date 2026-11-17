@@ -118,6 +118,8 @@ export interface GitDiff {
   after: string | null
   /** Not text, so there is nothing to show. */
   binary: boolean
+  /** A binary that is an image by its name, whose sides can be shown as they are. */
+  image: boolean
 }
 
 /**

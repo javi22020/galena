@@ -76,6 +76,10 @@ export class Vault {
     })
   }
 
+  async readBytes(rel: string): Promise<Buffer<ArrayBuffer>> {
+    return readFile(this.resolve(rel))
+  }
+
   async write(rel: string, content: string): Promise<void> {
     const abs = this.resolve(rel)
     await mkdir(path.dirname(abs), { recursive: true })
