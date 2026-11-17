@@ -76,7 +76,12 @@ function GitDiffBody() {
             </CodeBlockActions>
           )}
         </CodeBlockHeader>
-        {diff?.binary ? (
+        {diff?.image ? (
+          <div className="flex flex-wrap items-end justify-center gap-4 p-4">
+            {file.status !== 'added' && <GitImage path={file.path} side="before" version={fsTick} />}
+            {file.status !== 'deleted' && <GitImage path={file.path} side="after" version={fsTick} />}
+          </div>
+        ) : diff?.binary ? (
           <p className="px-4 py-6 text-center text-muted-foreground">This file is not text.</p>
         ) : (
           diff && <Diff before={diff.before ?? ''} after={diff.after ?? ''} className="max-h-[60vh]" />
@@ -84,5 +89,15 @@ function GitDiffBody() {
       </CodeBlock>
       <ConfirmDialog request={confirmation} onClose={() => setConfirmation(null)} />
     </div>
+  )
+}
+
+/** One side of a changed image. `version` changes with the files on disk, so the browser loads it again. */
+function GitImage({ path, side, version }: { path: string; side: 'before' | 'after'; version: number }) {
+  return (
+    <figure className="flex min-w-0 flex-col items-center gap-2">
+      <img src={`${api.gitImageUrl(path, side)}&v=${version}`} alt="" className="max-h-[50vh] max-w-full" />
+      <figcaption className="text-xs text-muted-foreground">{side === 'before' ? 'Last commit' : 'Now'}</figcaption>
+    </figure>
   )
 }

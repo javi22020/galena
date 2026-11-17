@@ -1,5 +1,6 @@
 // Live preview: links, math and tables are shown rendered and turn back into
 // their Markdown source while the cursor (or a selection) touches them.
+// Images are shown too, in place of their line or below it.
 // Nested numbered items also show the numbers of the items they belong to.
 
 import { syntaxTree } from '@codemirror/language'
@@ -16,8 +17,9 @@ import {
 } from '@codemirror/view'
 import type { SyntaxNode } from '@lezer/common'
 import { linkTarget } from '../shared/links'
+import { imageSrc, shownImage } from './images'
 import { renderMath } from './math'
-import { followLink } from './store'
+import { activeTab, followLink } from './store'
 import { renderTable } from './table'
 
 const hidden = Decoration.replace({})
@@ -122,6 +124,39 @@ class TableWidget extends WidgetType {
   }
 }
 
+class ImageWidget extends WidgetType {
+  constructor(readonly url: string) {
+    super()
+  }
+
+  eq(other: ImageWidget): boolean {
+    return other.url === this.url
+  }
+
+  get estimatedHeight(): number {
+    return 200
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const element = document.createElement('div')
+    element.className = 'cm-image'
+    const image = element.appendChild(document.createElement('img'))
+    image.draggable = false
+    image.alt = this.url // shown if the image does not load
+    // Resolved when drawn, against the note on screen, whose path may have changed since.
+    const src = imageSrc(this.url, activeTab()?.path ?? '')
+    if (src) image.src = src
+    // Its height is known once it loads.
+    image.onload = image.onerror = () => view.requestMeasure()
+    return element
+  }
+
+  // Let the editor handle clicks: they put the cursor on the line, revealing the link.
+  ignoreEvent(): boolean {
+    return false
+  }
+}
+
 /** Follows the link under a Ctrl/Cmd+click; says whether there was one. */
 function openLink(event: MouseEvent): boolean {
   if (!(event.ctrlKey || event.metaKey) || !(event.target instanceof Element)) return false
@@ -188,6 +223,12 @@ function inlineDecorations(view: EditorView): DecorationSet {
           }
         }
 
+        if (node.name === 'Image') {
+          // The image itself is below the line (see `blockDecorations`).
+          if (!shown && shownImage(state, node.node)) ranges.push(hidden.range(from, to))
+          return false
+        }
+
         if (node.name === 'Link') {
           // Only inline links, `[text](url)`; reference links have no URL to hide.
           const [open, close, paren] = node.node.getChildren('LinkMark')
@@ -232,17 +273,34 @@ const inlinePreview = ViewPlugin.fromClass(
 )
 
 /**
- * `$$` blocks and tables, rendered. Decorations that replace whole lines
- * change the editor's vertical layout, so they must come from a state field
- * rather than a view plugin.
+ * `$$` blocks, tables and images, rendered. Decorations that replace whole
+ * lines change the editor's vertical layout, so they must come from a state
+ * field rather than a view plugin.
+ *
+ * An image alone on its line replaces the line, so it takes no more room
+ * than a paragraph; with the cursor there, or with text around it, it goes
+ * below the line instead and the image itself never disappears. Which
+ * images are shown at all is up to `shownImage`.
  */
 function blockDecorations(state: EditorState): DecorationSet {
   const ranges: Range<Decoration>[] = []
   syntaxTree(state).iterate({
     enter(node) {
-      if (node.name === 'Paragraph') return false // no blocks inside; skip its inline nodes
-      if (node.name !== 'BlockMath' && node.name !== 'Table') return
       const { from, to } = node
+      if (node.name === 'Image') {
+        const url = shownImage(state, node.node)
+        if (!url) return false
+        const widget = new ImageWidget(url)
+        const line = state.doc.lineAt(to)
+        const alone = line.text.trim() === state.sliceDoc(from, to)
+        if (alone && !touches(state, line.from, line.to)) {
+          ranges.push(Decoration.replace({ widget, block: true }).range(line.from, line.to))
+        } else {
+          ranges.push(Decoration.widget({ widget, block: true, side: 1 }).range(line.to))
+        }
+        return false
+      }
+      if (node.name !== 'BlockMath' && node.name !== 'Table') return
       const source = state.sliceDoc(from, to)
       // Only blocks at the top level, which start and end with their lines.
       const wholeLines = from === state.doc.lineAt(from).from && to === state.doc.lineAt(to).to
@@ -293,6 +351,7 @@ function enterBlock(forward: boolean): Command {
     state
       .field(blockPreview)
       .between(Math.max(0, Math.min(main.head, reach)), Math.min(state.doc.length, Math.max(main.head, reach)), (from, to) => {
+        if (from === to) return // an image below its line, which leaves the line to land on
         if (forward && from > main.head) target ??= from
         if (!forward && to < main.head) target = to
       })
