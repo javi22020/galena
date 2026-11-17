@@ -50,3 +50,8 @@ test('rankMentions puts name prefixes first, then notes before folders', () => {
   ])
   expect(rankMentions(entries, '', 2).length).toBe(2)
 })
+
+test('rankMentions leaves images out', () => {
+  const entries: Entry[] = [file('Plan.md'), { path: 'assets/plan.png', type: 'asset' }]
+  expect(rankMentions(entries, 'plan').map((e) => e.path)).toStrictEqual(['Plan.md'])
+})

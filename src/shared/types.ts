@@ -15,8 +15,12 @@ import type { CodeFont, TextFont } from './fonts'
 
 export interface Entry {
   path: string
-  type: 'file' | 'dir'
+  /** A `file` is a note; an `asset` is an image, which only the explorer lists. */
+  type: 'file' | 'dir' | 'asset'
 }
+
+/** What can be created by name: a note or a folder. */
+export type NewEntryType = Exclude<Entry['type'], 'asset'>
 
 export interface AppState {
   vault: { path: string; name: string } | null
@@ -118,6 +122,8 @@ export interface GitDiff {
   after: string | null
   /** Not text, so there is nothing to show. */
   binary: boolean
+  /** A binary that is an image by its name, whose sides can be shown as they are. */
+  image: boolean
 }
 
 /**

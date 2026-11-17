@@ -2,17 +2,19 @@ import path from 'node:path'
 import { upgradeWebSocket, type HttpBindings } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
+import { bodyLimit } from 'hono/body-limit'
 import type { WSContext } from 'hono/ws'
 import type {
   AppState,
   ContextRef,
-  Entry,
+  NewEntryType,
   GitAction,
   GitResolution,
   GitStatus,
   ServerEvent,
 } from '../shared/types'
 import { createFolder, listFolders } from './folders'
+import { imageHeaders, MAX_IMAGE_SIZE, saveImage } from './images'
 import { listAgents } from './registry'
 import { configDir, errorMessage, expandHome, hasCode, HttpError, readJson, writeJson } from './util'
 import { Workspace } from './workspace'
@@ -76,6 +78,8 @@ export async function createGalena(options: GalenaOptions): Promise<Galena> {
     const read = (c.req.method === 'GET' || c.req.method === 'HEAD') && !c.req.header('upgrade')
     if (origin ? origin !== `http://${host}` : !read) throw new HttpError(403, 'Forbidden origin')
     await next()
+    // Nor may other sites embed what a read answers with, or tell from it what is in the vault.
+    c.res.headers.set('cross-origin-resource-policy', 'same-origin')
   })
 
   app.get(
@@ -137,7 +141,7 @@ export async function createGalena(options: GalenaOptions): Promise<Galena> {
 
   app.post('/api/file', async (c) => {
     const body = await c.req.json()
-    const type: Entry['type'] = body.type === 'dir' ? 'dir' : 'file'
+    const type: NewEntryType = body.type === 'dir' ? 'dir' : 'file'
     await current().vault.create(text(body.path, 'path'), type)
     return c.json({})
   })
@@ -152,6 +156,29 @@ export async function createGalena(options: GalenaOptions): Promise<Galena> {
     await current().vault.remove(text(c.req.query('path'), 'path'))
     return c.json({})
   })
+
+  // Images
+
+  app.get('/api/image', async (c) => {
+    const rel = text(c.req.query('path'), 'path')
+    const headers = imageHeaders(rel)
+    return new Response(await current().vault.readBytes(rel), { headers })
+  })
+
+  // The image is the body, as it is; the server picks where it goes and answers with its path.
+  app.post(
+    '/api/image',
+    bodyLimit({
+      maxSize: MAX_IMAGE_SIZE,
+      onError: () => {
+        throw new HttpError(413, `Images can be ${MAX_IMAGE_SIZE / 1024 / 1024} MB at most`)
+      },
+    }),
+    async (c) => {
+      const bytes = new Uint8Array(await c.req.arrayBuffer())
+      return c.json({ path: await saveImage(current().vault, c.req.query('name') ?? '', bytes) })
+    },
+  )
 
   // Index
 
@@ -177,6 +204,13 @@ export async function createGalena(options: GalenaOptions): Promise<Galena> {
 
   app.get('/api/git/diff', async (c) => {
     return c.json(await current().git.diff(text(c.req.query('path'), 'path')))
+  })
+
+  app.get('/api/git/image', async (c) => {
+    const side = c.req.query('side') === 'before' ? 'before' : 'after'
+    const rel = text(c.req.query('path'), 'path')
+    const headers = imageHeaders(rel)
+    return new Response(await current().git.raw(rel, side), { headers })
   })
 
   app.get('/api/git/conflict', async (c) => {

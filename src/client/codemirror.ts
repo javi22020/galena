@@ -1,5 +1,6 @@
 // CodeMirror setup for notes: Markdown with YAML frontmatter, math and
-// wikilinks, a live preview, and a theme driven by the app's CSS variables.
+// wikilinks, pasted images, a live preview, and a theme driven by the app's
+// CSS variables.
 
 import {
   autocompletion,
@@ -21,12 +22,14 @@ import { Compartment, EditorSelection, type Extension } from '@codemirror/state'
 import { EditorView, keymap, type ViewUpdate } from '@codemirror/view'
 import { classHighlighter, tags as t } from '@lezer/highlight'
 import { minimalSetup } from 'codemirror'
-import { noteName } from '../shared/links'
+import { noteName, parentOf } from '../shared/links'
+import { api } from './api'
+import { relativeUrl } from './images'
 import { indentListItems, outdentListItems } from './lists'
 import { livePreview } from './preview'
 import { createSearchPanel } from './search-panel'
 import { addToChatButton, type PickedText } from './selection'
-import { useStore } from './store'
+import { activeTab, showError, useStore } from './store'
 import { mathSyntax, noSetextHeadings, wikilinkSyntax } from './syntax'
 
 /** Holds `EditorView.lineWrapping` or nothing, depending on the settings. */
@@ -54,6 +57,7 @@ export function noteExtensions(
       indentWithTab,
     ]),
     livePreview,
+    imageInput,
     lineClick,
     addToChatButton(onAddToChat),
     theme,
@@ -181,6 +185,45 @@ function insertWikilink(view: EditorView, completion: Completion, from: number, 
   })
 }
 
+/** Uploads the images and links them at the cursor of the note they were added to. */
+async function addImages(view: EditorView, files: File[]): Promise<void> {
+  const tab = activeTab()
+  if (!tab) return
+  // One that fails does not take the others with it.
+  const uploads = await Promise.allSettled(files.map((file) => api.uploadImage(file)))
+  const failed = uploads.find((upload) => upload.status === 'rejected')
+  if (failed) showError(failed.reason)
+  const paths = uploads.flatMap((upload) => (upload.status === 'fulfilled' ? [upload.value] : []))
+  // Another note may be on screen by now; the path is read again, as it may have moved.
+  const note = activeTab()
+  if (!paths.length || note?.id !== tab.id) return
+  const links = paths.map((path) => `![](${relativeUrl(parentOf(note.path), path)})`)
+  view.dispatch(view.state.replaceSelection(links.join('\n')))
+}
+
+const imagesIn = (data: DataTransfer | null) =>
+  [...(data?.files ?? [])].filter((file) => file.type.startsWith('image/'))
+
+/** Pasting or dropping image files adds them to the vault and links them. */
+const imageInput = EditorView.domEventHandlers({
+  paste(event, view) {
+    // Copying from a spreadsheet or a word processor brings an image of the text along with it: the text wins.
+    if (event.clipboardData?.getData('text/plain')) return false
+    const files = imagesIn(event.clipboardData)
+    if (!files.length) return false
+    void addImages(view, files)
+    return true
+  },
+  // Dropped files win over text, as in CodeMirror's own drop handling.
+  drop(event, view) {
+    const files = imagesIn(event.dataTransfer)
+    if (!files.length) return false
+    view.dispatch({ selection: { anchor: view.posAtCoords({ x: event.clientX, y: event.clientY }, false) } })
+    void addImages(view, files)
+    return true
+  },
+})
+
 const link = {
   color: 'var(--brand)',
   textDecoration: 'underline',
@@ -245,6 +288,8 @@ const theme = EditorView.theme({
   '.cm-math-block': { padding: '0.6em 2px', overflowX: 'auto', contain: 'inline-size' },
   '.cm-math-block .katex-display': { margin: '0' },
   '.cm-table': { padding: '0.5em 0', overflowX: 'auto', contain: 'inline-size' },
+  '.cm-image': { padding: '0.5em 0' },
+  '.cm-image img': { display: 'block', maxWidth: '100%' },
   '.cm-table table': { borderCollapse: 'collapse', whiteSpace: 'normal' },
   '.cm-table th, .cm-table td': {
     border: '1px solid var(--border)',

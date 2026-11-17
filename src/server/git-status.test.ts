@@ -50,6 +50,12 @@ test('parseStatus tells the kinds of change apart', () => {
   ])
 })
 
+test('parseStatus takes a file that git only intends to add for a new one', () => {
+  // `git add -N`: the last commit has nothing to compare it with.
+  const { files } = parseStatus(z(`1 .A N... ${HASHES} intended.md`))
+  expect(files).toStrictEqual([{ path: 'intended.md', status: 'added' }])
+})
+
 test('parseStatus leaves out repositories nested in the vault', () => {
   const { files } = parseStatus(z('? nested/', '? notes/new.md'))
   expect(files).toStrictEqual([{ path: 'notes/new.md', status: 'added' }])
