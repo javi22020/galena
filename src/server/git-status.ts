@@ -83,10 +83,14 @@ export function parseStatus(output: string, prefix = ''): ParsedStatus {
   return status
 }
 
-/** Galena never stages part of a file, so the index and the worktree count as one. */
+/**
+ * Galena never stages part of a file, so the index and the worktree count as
+ * one. A file is new wherever git says so: `git add -N` leaves the `A` on
+ * the worktree's side.
+ */
 function kindOf(xy: string): GitFile['status'] {
   if (xy.includes('D')) return 'deleted'
-  return xy.startsWith('A') ? 'added' : 'modified'
+  return xy.includes('A') ? 'added' : 'modified'
 }
 
 const NOTE = '# Galena keeps its own data out of the repository'
