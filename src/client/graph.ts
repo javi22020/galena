@@ -23,6 +23,23 @@ interface Node extends SimulationNodeDatum {
   radius: number
 }
 
+/** A node's highlight on its way from one level to another, from `start` (ms). */
+interface Fade {
+  from: number
+  to: number
+  start: number
+}
+
+/** How long a highlight takes to come or go. */
+const FADE_MS = 300
+
+/**
+ * Cubic ease-in-out, the curve of d3's transitions: the change spreads over
+ * the whole fade, so it reads as one, where a curve that does most of it in
+ * the first frames would look like a cut.
+ */
+const easeInOut = (t: number) => (t >= 1 ? 1 : t < 0.5 ? 4 * t ** 3 : 1 - (2 - 2 * t) ** 3 / 2)
+
 /**
  * Draws a force-directed graph on a canvas, with pan (drag the background),
  * zoom (wheel or pinch) and draggable nodes. Clicking a node calls `onOpen`.
@@ -44,6 +61,13 @@ export function renderGraph(canvas: HTMLCanvasElement, graph: Graph, onOpen: (pa
   const context = canvas.getContext('2d')!
   const view = { x: 0, y: 0, scale: 1 }
   let hovered: Node | undefined
+  /**
+   * How lit up each node is as the one pointed at, while that changes: the
+   * node under the pointer fades in, the one it left fades out.
+   */
+  const fades = new Map<Node, Fade>()
+  /** The animation frame redrawing the fades, while any is running. */
+  let frame = 0
   /** A press on the canvas: on a node it drags the node, elsewhere the view. */
   let drag: { node?: Node; start: Point; moved: boolean } | undefined
 
@@ -54,6 +78,32 @@ export function renderGraph(canvas: HTMLCanvasElement, graph: Graph, onOpen: (pa
     .force('y', forceY().strength(0.06))
     .on('tick', draw)
 
+  /** How lit up `node` is at `now` as the one pointed at, from 0 to 1. */
+  function level(node: Node, now: number): number {
+    const fade = fades.get(node)
+    if (!fade) return 0
+    return fade.from + (fade.to - fade.from) * easeInOut((now - fade.start) / FADE_MS)
+  }
+
+  /** Points at `node`, or at nothing: each highlight fades from where it is now. */
+  function hover(node: Node | undefined): void {
+    if (node === hovered) return
+    const now = performance.now()
+    if (hovered) fades.set(hovered, { from: level(hovered, now), to: 0, start: now })
+    if (node) fades.set(node, { from: level(node, now), to: 1, start: now })
+    hovered = node
+    frame ||= requestAnimationFrame(fadeStep)
+  }
+
+  function fadeStep(now: number): void {
+    frame = 0
+    draw()
+    for (const [node, fade] of fades) {
+      if (fade.to === 0 && now - fade.start >= FADE_MS) fades.delete(node)
+    }
+    if ([...fades.values()].some((fade) => now - fade.start < FADE_MS)) frame = requestAnimationFrame(fadeStep)
+  }
+
   function draw(): void {
     const ratio = window.devicePixelRatio
     const { clientWidth: width, clientHeight: height } = canvas
@@ -63,8 +113,22 @@ export function renderGraph(canvas: HTMLCanvasElement, graph: Graph, onOpen: (pa
     }
     const style = getComputedStyle(canvas)
     const color = (name: string) => style.getPropertyValue(name)
-    const related = (node: Node) =>
-      node === hovered || (hovered !== undefined && neighbours.has(`${hovered.path}\n${node.path}`))
+    // A node lights up as the one pointed at or as its neighbour, a link as
+    // a link of it: each as much as that node is lit up.
+    const now = performance.now()
+    const lit = [...fades.keys()].map((node) => ({ node, level: level(node, now) })).filter((l) => l.level > 0)
+    const glow = (node: Node) =>
+      Math.max(
+        0,
+        ...lit.map((l) => (l.node === node || neighbours.has(`${l.node.path}\n${node.path}`) ? l.level : 0)),
+      )
+    /** Paints at `alpha`, over what was just drawn in the plain colour. */
+    const over = (alpha: number, paint: () => void) => {
+      if (alpha <= 0) return
+      context.globalAlpha = alpha
+      paint()
+      context.globalAlpha = 1
+    }
 
     context.setTransform(ratio, 0, 0, ratio, 0, 0)
     context.clearRect(0, 0, width, height)
@@ -73,25 +137,34 @@ export function renderGraph(canvas: HTMLCanvasElement, graph: Graph, onOpen: (pa
 
     context.lineWidth = 1 / view.scale
     for (const { source, target } of links as { source: Node; target: Node }[]) {
-      context.strokeStyle = color(source === hovered || target === hovered ? '--brand' : '--border')
       context.beginPath()
       context.moveTo(source.x!, source.y!)
       context.lineTo(target.x!, target.y!)
+      context.strokeStyle = color('--border')
       context.stroke()
+      over(Math.max(level(source, now), level(target, now)), () => {
+        context.strokeStyle = color('--brand')
+        context.stroke()
+      })
     }
 
     const showAllLabels = nodes.length <= 60 || view.scale > 1.4
     context.font = `${11 / view.scale}px ${style.fontFamily}`
     context.textAlign = 'center'
     for (const node of nodes) {
-      context.fillStyle = color(related(node) ? '--brand' : '--muted-foreground')
+      const lightness = glow(node)
       context.beginPath()
       context.arc(node.x!, node.y!, node.radius, 0, Math.PI * 2)
+      context.fillStyle = color('--muted-foreground')
       context.fill()
-      if (showAllLabels || related(node)) {
+      over(lightness, () => {
+        context.fillStyle = color('--brand')
+        context.fill()
+      })
+      over(showAllLabels ? 1 : lightness, () => {
         context.fillStyle = color('--foreground')
         context.fillText(noteName(node.path), node.x!, node.y! + node.radius + 12 / view.scale)
-      }
+      })
     }
   }
 
@@ -167,7 +240,7 @@ export function renderGraph(canvas: HTMLCanvasElement, graph: Graph, onOpen: (pa
         pinch = next
       }
     } else if (!drag || !last) {
-      hovered = nodeAt(event)
+      hover(nodeAt(event))
       canvas.style.cursor = hovered ? 'pointer' : 'grab'
     } else {
       // A finger is never quite still: until it travels a few pixels, the press is a click.
@@ -219,6 +292,7 @@ export function renderGraph(canvas: HTMLCanvasElement, graph: Graph, onOpen: (pa
 
   return () => {
     simulation.stop()
+    cancelAnimationFrame(frame)
     observer.disconnect()
     canvas.removeEventListener('pointerdown', onPointerDown)
     canvas.removeEventListener('pointermove', onPointerMove)
