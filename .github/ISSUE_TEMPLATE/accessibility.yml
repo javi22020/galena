@@ -1,0 +1,40 @@
+name: Accessibility
+description: A barrier that makes Galena hard or impossible to use for people with disabilities.
+labels: [accessibility]
+body:
+  - type: textarea
+    id: barrier
+    attributes:
+      label: Barrier
+      description: What you can't do, and where in the app.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: What should happen instead, for example what a screen reader should announce.
+    validations:
+      required: true
+  - type: input
+    id: assistive
+    attributes:
+      label: Assistive technology
+      description: Screen reader, keyboard only, zoom, voice control… and its version.
+      placeholder: "NVDA 2025.3, keyboard only"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Galena version, operating system and browser.
+      placeholder: "Galena 0.2.5, Windows 11, Firefox 145"
+    validations:
+      required: true

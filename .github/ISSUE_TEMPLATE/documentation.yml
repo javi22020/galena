@@ -1,0 +1,23 @@
+name: Documentation
+description: Something in the README or docs is missing, wrong or unclear.
+labels: [documentation]
+body:
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: The file and section, or a link to it.
+      placeholder: "README.md, “Agents”"
+    validations:
+      required: true
+  - type: textarea
+    id: issue
+    attributes:
+      label: What's missing or wrong
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggestion
+      description: What it should say, if you know.

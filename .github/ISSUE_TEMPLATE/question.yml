@@ -1,0 +1,15 @@
+name: Question
+description: Ask how something in Galena works.
+labels: [question]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What you're trying to do, and what you've tried.
