@@ -1,8 +1,10 @@
 // Markdown syntax that the CommonMark/GFM parser does not know: math and
 // wikilinks. Parsing them into nodes of their own keeps their content from
 // being read as Markdown (the `_` and `^` of a formula are not emphasis) and
-// gives the live preview something to find in the syntax tree.
+// gives the live preview something to find in the syntax tree. Also what the
+// preview reads from the nodes the parser does know: which code is a diagram.
 
+import type { SyntaxNode } from '@lezer/common'
 import { tags as t } from '@lezer/highlight'
 import {
   Emoji,
@@ -108,6 +110,19 @@ export const wikilinkSyntax: MarkdownConfig = {
  * heading while its first `-` is being typed.
  */
 export const noSetextHeadings: MarkdownConfig = { remove: ['SetextHeading'] }
+
+/**
+ * The source of a `FencedCode` node that is a diagram: a ```mermaid block,
+ * closed and with something in it. An unclosed one would take the rest of the
+ * note with it. `slice` reads the text the node was parsed from.
+ */
+export function diagramSource(node: SyntaxNode, slice: (from: number, to: number) => string): string | null {
+  const info = node.getChild('CodeInfo')
+  const code = node.getChild('CodeText')
+  if (!info || !code || node.getChildren('CodeMark').length < 2) return null
+  if (!/^mermaid(\s|$)/i.test(slice(info.from, info.to))) return null
+  return slice(code.from, code.to).trim() || null
+}
 
 /**
  * A standalone parser for the same Markdown the editor understands (the

@@ -1,5 +1,5 @@
-// Live preview: links, math and tables are shown rendered and turn back into
-// their Markdown source while the cursor (or a selection) touches them.
+// Live preview: links, math, tables and Mermaid diagrams are shown rendered and
+// turn back into their Markdown source while the cursor (or a selection) touches them.
 // Images are shown too, in place of their line or below it.
 // Nested numbered items also show the numbers of the items they belong to.
 
@@ -17,9 +17,11 @@ import {
 } from '@codemirror/view'
 import type { SyntaxNode } from '@lezer/common'
 import { linkTarget } from '../shared/links'
+import { showDiagram } from './diagram'
 import { imageSrc, shownImage } from './images'
 import { renderMath } from './math'
 import { activeTab, followLink } from './store'
+import { diagramSource } from './syntax'
 import { renderTable } from './table'
 
 const hidden = Decoration.replace({})
@@ -30,6 +32,16 @@ const codeLine = (first: boolean, last: boolean) =>
 /** Whether the cursor or a selection is on a range, ends included. */
 function touches(state: EditorState, from: number, to: number): boolean {
   return state.selection.ranges.some((range) => range.from <= to && range.to >= from)
+}
+
+/**
+ * Whether a mouse event is on the horizontal scrollbar of the element it is for, which lies
+ * below what the element shows. Scrolling a wide formula, table or diagram is not a click on it.
+ */
+function onScrollbar(event: Event): boolean {
+  const { target } = event
+  const scrolls = target instanceof HTMLElement && target.scrollWidth > target.clientWidth
+  return scrolls && event instanceof MouseEvent && event.offsetY >= target.clientHeight
 }
 
 class MathWidget extends WidgetType {
@@ -53,8 +65,8 @@ class MathWidget extends WidgetType {
   }
 
   // Let the editor handle clicks: they put the cursor on the formula, revealing it.
-  ignoreEvent(): boolean {
-    return false
+  ignoreEvent(event: Event): boolean {
+    return onScrollbar(event)
   }
 }
 
@@ -112,7 +124,7 @@ class TableWidget extends WidgetType {
     // The editor ignores events inside widgets, so clicks are handled here:
     // they reveal the source with the cursor in the cell that was clicked.
     element.addEventListener('mousedown', (event) => {
-      if (event.button !== 0 || !(event.target instanceof Element)) return
+      if (event.button !== 0 || !(event.target instanceof Element) || onScrollbar(event)) return
       event.preventDefault()
       if (openLink(event)) return
       const cell = event.target.closest<HTMLElement>('th, td')
@@ -154,6 +166,33 @@ class ImageWidget extends WidgetType {
   // Let the editor handle clicks: they put the cursor on the line, revealing the link.
   ignoreEvent(): boolean {
     return false
+  }
+}
+
+class DiagramWidget extends WidgetType {
+  constructor(readonly source: string) {
+    super()
+  }
+
+  eq(other: DiagramWidget): boolean {
+    return other.source === this.source
+  }
+
+  get estimatedHeight(): number {
+    return 200
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const element = document.createElement('div')
+    element.className = 'cm-diagram'
+    // Its height is known once it is drawn: at once, unless it is the first time.
+    showDiagram(element, this.source, () => view.requestMeasure())
+    return element
+  }
+
+  // Let the editor handle clicks: they put the cursor on the diagram, revealing its source.
+  ignoreEvent(event: Event): boolean {
+    return onScrollbar(event)
   }
 }
 
@@ -273,7 +312,7 @@ const inlinePreview = ViewPlugin.fromClass(
 )
 
 /**
- * `$$` blocks, tables and images, rendered. Decorations that replace whole
+ * `$$` blocks, tables, diagrams and images, rendered. Decorations that replace whole
  * lines change the editor's vertical layout, so they must come from a state
  * field rather than a view plugin.
  *
@@ -300,21 +339,22 @@ function blockDecorations(state: EditorState): DecorationSet {
         }
         return false
       }
-      if (node.name !== 'BlockMath' && node.name !== 'Table') return
-      const source = state.sliceDoc(from, to)
+      if (node.name !== 'BlockMath' && node.name !== 'Table' && node.name !== 'FencedCode') return
       // Only blocks at the top level, which start and end with their lines.
       const wholeLines = from === state.doc.lineAt(from).from && to === state.doc.lineAt(to).to
+      if (!wholeLines || touches(state, from, to)) return false
       let widget: WidgetType | undefined
-      if (node.name === 'Table') {
-        widget = new TableWidget(source)
+      if (node.name === 'FencedCode') {
+        const diagram = diagramSource(node.node, (a, b) => state.sliceDoc(a, b))
+        if (diagram) widget = new DiagramWidget(diagram)
+      } else if (node.name === 'Table') {
+        widget = new TableWidget(state.sliceDoc(from, to))
       } else {
         // An unclosed block would swallow the rest of the note: leave it as text.
-        const tex = /^\$\$([\s\S]*)\$\$\s*$/.exec(source)?.[1]?.trim()
+        const tex = /^\$\$([\s\S]*)\$\$\s*$/.exec(state.sliceDoc(from, to))?.[1]?.trim()
         if (tex) widget = new MathWidget(tex, true, true)
       }
-      if (widget && wholeLines && !touches(state, from, to)) {
-        ranges.push(Decoration.replace({ widget, block: true }).range(from, to))
-      }
+      if (widget) ranges.push(Decoration.replace({ widget, block: true }).range(from, to))
       return false
     },
   })

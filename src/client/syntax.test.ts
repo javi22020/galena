@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { noteParser } from './syntax'
+import { diagramSource, noteParser } from './syntax'
 
 /** The text of every node with one of the given names, in document order. */
 function nodes(text: string, ...names: string[]): string[] {
@@ -73,4 +73,35 @@ test('a line of dashes under a paragraph does not make it a heading', () => {
   expect(nodes('Title\n===', ...headings)).toStrictEqual([])
   // What typing the first `-` of a list under a paragraph looks like.
   expect(nodes('Shopping\n-', ...headings)).toStrictEqual([])
+})
+
+/** What each fenced block of a note is drawn from; null for one that stays as code. */
+function diagrams(text: string): (string | null)[] {
+  const found: (string | null)[] = []
+  noteParser.parse(text).iterate({
+    enter(node) {
+      if (node.name === 'FencedCode') found.push(diagramSource(node.node, (from, to) => text.slice(from, to)))
+    },
+  })
+  return found
+}
+
+test('a mermaid block is a diagram', () => {
+  expect(diagrams('```mermaid\nflowchart TD\n  A --> B\n```')).toStrictEqual(['flowchart TD\n  A --> B'])
+  expect(diagrams('~~~Mermaid\npie\n~~~\n\ntext')).toStrictEqual(['pie'])
+  // Whatever follows the language is for other tools.
+  expect(diagrams('```mermaid title="Flow"\npie\n```')).toStrictEqual(['pie'])
+})
+
+test('other code is not a diagram', () => {
+  expect(diagrams('```ts\nconst a = 1\n```')).toStrictEqual([null])
+  expect(diagrams('```mermaids\npie\n```')).toStrictEqual([null])
+  expect(diagrams('```\nmermaid\n```')).toStrictEqual([null])
+})
+
+test('an unclosed or empty block stays as code', () => {
+  // Unclosed, it runs to the end of the note.
+  expect(diagrams('```mermaid\nflowchart TD\n\n# Heading')).toStrictEqual([null])
+  expect(diagrams('```mermaid\n```')).toStrictEqual([null])
+  expect(diagrams('```mermaid\n   \n```')).toStrictEqual([null])
 })

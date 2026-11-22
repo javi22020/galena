@@ -239,4 +239,35 @@
   .tok-comment {
     font-style: italic;
   }
+
+  /*
+   * A Mermaid diagram (diagram.ts): centred, shrunk to its column, and scrolled
+   * when even that is too wide. Contained, its width does not stretch what it is in.
+   */
+  .diagram {
+    overflow-x: auto;
+    contain: inline-size;
+  }
+
+  /* Not the icons a diagram may have inside, which are `svg` too. */
+  .diagram > svg {
+    margin-inline: auto;
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Until it is drawn, the room for it to be clicked. */
+  .diagram:empty {
+    min-height: 4rem;
+  }
+
+  /* Why it could not be drawn, in Mermaid's words. */
+  .diagram > pre {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--destructive);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
 }
