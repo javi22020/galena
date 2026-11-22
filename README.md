@@ -22,8 +22,9 @@ the Git already on your machine, if there is one.
   Obsidian vault. Galena keeps its own data in `.galena/` inside the vault.
 - **Editor.** CodeMirror 6 with Markdown, frontmatter, `[[wikilinks]]` with
   autocompletion (Ctrl/Cmd+click to follow), tabs, autosave and backlinks.
-  Links, tables and LaTeX math (`$…$`, `$$…$$`) are rendered in place and
-  turn back into source under the cursor; fenced code is syntax-highlighted.
+  Links, tables, LaTeX math (`$…$`, `$$…$$`) and Mermaid diagrams
+  (```` ```mermaid ```` blocks) are rendered in place and turn back into
+  source under the cursor; fenced code is syntax-highlighted.
   Tab and Shift+Tab nest and unnest list items, keeping numbered lists
   counting. Font size, fonts for headings, text and code, and line wrapping
   are set in Settings; a light or dark theme, from the theme toggle.
@@ -34,11 +35,12 @@ the Git already on your machine, if there is one.
   changes made outside the app.
 - **Agents.** Enable agents from the ACP registry, or add your own with the
   command that starts it in ACP mode, and chat with them about your vault:
-  streaming answers, tool calls, plans and permission requests. Mention notes
-  with `@`, attach the open note, or send the current selection with
-  Ctrl/Cmd+L. Pick the mode, the model, the effort and whatever else the agent
-  offers; new chats start with the last mode, model and effort you picked for
-  each agent. The agent asks for permission as the mode chosen in the chat says.
+  streaming answers with their Mermaid diagrams drawn, tool calls, plans and
+  permission requests. Mention notes with `@`, attach the open note, or send
+  the current selection with Ctrl/Cmd+L. Pick the mode, the model, the effort
+  and whatever else the agent offers; new chats start with the last mode, model
+  and effort you picked for each agent. The agent asks for permission as the
+  mode chosen in the chat says.
 - **Git.** A Git tab next to the files can initialize a repository for the
   vault, or use the one the vault folder is part of, and add a remote. It shows
   what changed since the last commit, with diffs; one Sync button that commits,

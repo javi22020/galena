@@ -18,8 +18,8 @@ import {
   Wrench,
 } from 'lucide-react'
 import { motion } from 'motion/react'
-import { memo, useMemo, useState, type ComponentProps, type ReactNode } from 'react'
-import { Streamdown, useIsCodeFenceIncomplete, type Components, type ExtraProps } from 'streamdown'
+import { memo, useContext, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react'
+import { Streamdown, StreamdownContext, useIsCodeFenceIncomplete, type Components, type ExtraProps } from 'streamdown'
 import {
   Attachment,
   AttachmentActions,
@@ -57,6 +57,7 @@ import { noteName } from '../../shared/links'
 import { blockText } from '../../shared/transcript'
 import type { ChatItem, ChatState, ContextRef, PermissionRequest } from '../../shared/types'
 import { api } from '../api'
+import { showDiagram } from '../diagram'
 import { showError, useStore } from '../store'
 import { Diff } from './Diff'
 
@@ -242,11 +243,41 @@ function Code({ node: _, className, children, ...props }: ComponentProps<'code'>
       </code>
     )
   }
+  const code = typeof children === 'string' ? children : ''
+  const language = /language-(\S+)/.exec(className ?? '')?.[1] ?? ''
+  return language.toLowerCase() === 'mermaid' ? <Diagram code={code} /> : <Fenced code={code} language={language} />
+}
+
+/** A Mermaid block, drawn once it is complete; its code until then, and when it cannot be drawn. */
+function Diagram({ code }: { code: string }) {
+  const incomplete = useIsCodeFenceIncomplete()
+  const { isAnimating } = useContext(StreamdownContext)
+  /** The code that the diagram in `figure` was drawn from. */
+  const [drawn, setDrawn] = useState<string>()
+  const figure = useRef<HTMLDivElement>(null)
+  // Before the browser paints, so a diagram drawn before is not shown as code first.
+  useLayoutEffect(() => {
+    const element = figure.current
+    if (incomplete || !element) return
+    const draw = () => showDiagram(element, code, (failed) => setDrawn(failed ? undefined : code))
+    // An unclosed block inside a quote or a list is not known to be incomplete: while
+    // the answer is being written, the code is drawn once it stops changing.
+    if (!isAnimating) return draw()
+    const timer = setTimeout(draw, 300)
+    return () => clearTimeout(timer)
+  }, [code, incomplete, isAnimating])
+  const shown = drawn === code
   return (
-    <Fenced
-      code={typeof children === 'string' ? children : ''}
-      language={/language-(\S+)/.exec(className ?? '')?.[1] ?? ''}
-    />
+    <>
+      {/* Always there, hidden or not: it is where the diagram is drawn. */}
+      <CodeBlock size="sm" hidden={!shown} className="bg-transparent">
+        <CodeBlockActions>
+          <CodeBlockCopyButton value={code} />
+        </CodeBlockActions>
+        <div ref={figure} className="p-3" />
+      </CodeBlock>
+      {!shown && <Fenced code={code} language="mermaid" />}
+    </>
   )
 }
 

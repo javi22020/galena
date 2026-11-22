@@ -288,6 +288,8 @@ const theme = EditorView.theme({
   '.cm-math-block': { padding: '0.6em 2px', overflowX: 'auto', contain: 'inline-size' },
   '.cm-math-block .katex-display': { margin: '0' },
   '.cm-table': { padding: '0.5em 0', overflowX: 'auto', contain: 'inline-size' },
+  // Diagrams size and scroll themselves; see `.diagram` in styles.css.
+  '.cm-diagram': { padding: '0.75em 0' },
   '.cm-image': { padding: '0.5em 0' },
   '.cm-image img': { display: 'block', maxWidth: '100%' },
   '.cm-table table': { borderCollapse: 'collapse', whiteSpace: 'normal' },
