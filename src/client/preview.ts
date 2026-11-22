@@ -44,6 +44,15 @@ function onScrollbar(event: Event): boolean {
   return scrolls && event instanceof MouseEvent && event.offsetY >= target.clientHeight
 }
 
+/**
+ * Whether a mouse event is a Ctrl/Cmd+click on a link in a diagram. As with the
+ * other links of a note, the browser follows it then, in a tab of its own.
+ */
+function onDiagramLink(event: Event): boolean {
+  const { target } = event
+  return event instanceof MouseEvent && (event.ctrlKey || event.metaKey) && target instanceof Element && !!target.closest('a')
+}
+
 class MathWidget extends WidgetType {
   constructor(
     readonly tex: string,
@@ -192,7 +201,7 @@ class DiagramWidget extends WidgetType {
 
   // Let the editor handle clicks: they put the cursor on the diagram, revealing its source.
   ignoreEvent(event: Event): boolean {
-    return onScrollbar(event)
+    return onScrollbar(event) || onDiagramLink(event)
   }
 }
 
