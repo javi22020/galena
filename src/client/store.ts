@@ -16,6 +16,7 @@ import {
   type ServerEvent,
   type SessionMeta,
   type Settings,
+  type TranscriptionState,
 } from '../shared/types'
 import { api, type GitBody } from './api'
 import { AGENT_OVERLAY } from './lib/layout'
@@ -49,6 +50,8 @@ interface State {
   settings: Settings
   /** Agents published in the ACP registry. */
   agents: AgentInfo[]
+  /** Voice dictation; null until loaded. */
+  transcription: TranscriptionState | null
   /** The vault's repository; null until the server has looked at it. */
   git: GitStatus | null
   /** A Git action is running. */
@@ -112,6 +115,7 @@ export const useStore = create<State>(() => ({
   fsTick: 0,
   settings: defaultSettings,
   agents: [],
+  transcription: null,
   agentId: '',
   agentOpen: readAgentOpen(),
   composerFocus: 0,
@@ -121,10 +125,12 @@ export const useStore = create<State>(() => ({
 const { getState: get, setState: set } = useStore
 
 /** Lets the store reach the editor, which lives outside React state. */
-export const editorHooks = {
+export const editorHooks: {
   /** Saves pending edits of the note on screen. */
-  flush: async (): Promise<void> => {},
-}
+  flush: () => Promise<void>
+  /** Puts text at the cursor of the note on screen; says whether there was one to put it in. */
+  insert: (text: string) => boolean
+} = { flush: async () => {}, insert: () => false }
 
 const fsListeners = new Set<(event: FsEvent) => void>()
 
@@ -156,9 +162,14 @@ export async function sync(): Promise<void> {
     const state = await api.state()
     if (!state.vault) return set({ phase: 'home', ...state })
     connect()
-    const [entries, settings, sessions] = await Promise.all([api.tree(), api.settings(), api.sessions()])
+    const [entries, settings, sessions, transcription] = await Promise.all([
+      api.tree(),
+      api.settings(),
+      api.sessions(),
+      api.transcription(),
+    ])
     const agentId = get().agentId in settings.agents ? get().agentId : firstAgent(settings)
-    set({ phase: 'workspace', ...state, entries, settings, sessions, agentId })
+    set({ phase: 'workspace', ...state, entries, settings, sessions, transcription, agentId })
     refreshGit()
   } catch {
     setTimeout(sync, 2000) // the server is unreachable; keep trying

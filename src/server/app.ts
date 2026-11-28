@@ -16,6 +16,7 @@ import type {
 import { createFolder, listFolders } from './folders'
 import { imageHeaders, MAX_IMAGE_SIZE, saveImage } from './images'
 import { listAgents } from './registry'
+import { MAX_AUDIO_SIZE, Transcription } from './transcription'
 import { configDir, errorMessage, expandHome, hasCode, HttpError, readJson, writeJson } from './util'
 import { Workspace } from './workspace'
 
@@ -198,6 +199,33 @@ export async function createGalena(options: GalenaOptions): Promise<Galena> {
 
   app.get('/api/settings', (c) => c.json(current().settings))
   app.put('/api/settings', async (c) => c.json(await current().saveSettings(await c.req.json())))
+  // Dictation. The key goes in and is never sent back; the audio is the body, as it is.
+
+  const transcription = new Transcription()
+  app.get('/api/transcription', async (c) => c.json(await transcription.state()))
+  app.put('/api/transcription', async (c) => {
+    const body = (await c.req.json()) as Record<string, unknown>
+    const change: { key?: string | null; model?: string | null } = {}
+    if (body.key === null || typeof body.key === 'string') change.key = body.key
+    if (body.model === null || typeof body.model === 'string') change.model = body.model
+    return c.json(await transcription.update(change))
+  })
+  app.get('/api/transcription/models', async (c) => c.json(await transcription.models()))
+  app.post(
+    '/api/transcribe',
+    bodyLimit({
+      maxSize: MAX_AUDIO_SIZE,
+      onError: () => {
+        throw new HttpError(413, `Recordings can be ${MAX_AUDIO_SIZE / 1024 / 1024} MB at most`)
+      },
+    }),
+    async (c) => {
+      const audio = new Uint8Array(await c.req.arrayBuffer())
+      const type = c.req.header('content-type') ?? ''
+      return c.json({ text: await transcription.transcribe(audio, type, c.req.raw.signal) })
+    },
+  )
+
   app.get('/api/agents', async (c) => c.json(await listAgents()))
 
   // Git

@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -6,8 +6,9 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { codeFonts, textFonts } from '../../shared/fonts'
-import type { Settings as SettingsData } from '../../shared/types'
-import { saveSettings, useStore } from '../store'
+import type { Settings as SettingsData, TranscriptionModel } from '../../shared/types'
+import { api } from '../api'
+import { saveSettings, showError, useStore } from '../store'
 import { ConfirmDialog, type Confirmation } from './ConfirmDialog'
 import { Modal } from './Modal'
 
@@ -150,6 +151,8 @@ function SettingsBody() {
         </form>
       </Section>
 
+      <TranscriptionSection />
+
       <Section
         title="Git"
         description="Vaults that are Git repositories are committed and synced from the Git tab, with the Git installed on this machine and its credentials."
@@ -211,6 +214,126 @@ function SettingsBody() {
         }}
       />
     </div>
+  )
+}
+
+/** The provider's API key and model for voice dictation. */
+function TranscriptionSection() {
+  const state = useStore((s) => s.transcription)
+  const [key, setKey] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [models, setModels] = useState<TranscriptionModel[] | null>(null)
+  const configured = !!state?.configured
+
+  // The models depend on the key, so they are asked for whenever one is set.
+  useEffect(() => {
+    if (!configured) return
+    let current = true
+    api.transcriptionModels().then((list) => current && setModels(list), showError)
+    return () => {
+      current = false
+      setModels(null)
+    }
+  }, [configured])
+
+  if (!state) return null
+
+  const apply = async (change: { key?: string | null; model?: string | null }) => {
+    setBusy(true)
+    try {
+      useStore.setState({ transcription: await api.setTranscription(change) })
+      return true
+    } catch (error) {
+      showError(error)
+      return false
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const saveKey = async (event: FormEvent) => {
+    event.preventDefault()
+    if (key.trim() && (await apply({ key }))) setKey('')
+  }
+
+  // A picked model is listed even when the provider no longer offers it, so the choice shows.
+  const picked = state.model
+  const missing = picked !== null && models !== null && !models.some((m) => m.id === picked)
+  const options = models && picked !== null && missing ? [{ id: picked, name: picked }, ...models] : models
+
+  return (
+    <Section
+      title="Dictation"
+      description={`Dictate into notes from a bar at the bottom of the editor, transcribed by ${state.providerName}. The API key is kept in Galena's folder in your user configuration, readable only by you, and never sent to the browser.`}
+    >
+      {configured ? (
+        <Field label={`${state.providerName} API key`}>
+          <Badge variant="secondary">Saved</Badge>
+          <Button variant="outline" size="sm" disabled={busy} onClick={() => void apply({ key: null })}>
+            Remove
+          </Button>
+        </Field>
+      ) : (
+        <form onSubmit={(e) => void saveKey(e)} className="flex gap-2">
+          <Input
+            type="password"
+            className="min-w-0 flex-1 font-mono"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder={`${state.providerName} API key`}
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <Button variant="outline" disabled={busy || !key.trim()}>
+            {busy ? 'Checking…' : 'Save'}
+          </Button>
+        </form>
+      )}
+      {!configured && (
+        <p className="text-[13px] text-muted-foreground">
+          <a
+            href={state.keyUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-brand underline decoration-1 underline-offset-3"
+          >
+            Get a {state.providerName} API key
+          </a>
+        </p>
+      )}
+      {configured && (
+        <Field label="Model">
+          {/* An empty value shows the placeholder: no model is picked for the user. */}
+          <Select value={picked ?? ''} disabled={!options?.length || busy} onValueChange={(model) => void apply({ model })}>
+            <SelectTrigger className="w-64 font-mono text-xs">
+              <SelectValue placeholder={options ? 'Pick a model' : 'Loading models…'} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {(options ?? []).map((model) => (
+                  <SelectItem key={model.id} value={model.id} className="font-mono text-xs">
+                    {model.id}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+      )}
+      {configured && picked === null && !!models?.length && (
+        <p className="text-[13px] text-muted-foreground">Pick a model to start dictating.</p>
+      )}
+      {configured && missing && (
+        <p className="text-[13px] text-warning">
+          {state.providerName} no longer lists {picked}; pick one of the models it offers.
+        </p>
+      )}
+      {configured && models?.length === 0 && (
+        <p className="text-[13px] text-warning">
+          {state.providerName} lists no transcription model for this key, so there is none to dictate with.
+        </p>
+      )}
+    </Section>
   )
 }
 

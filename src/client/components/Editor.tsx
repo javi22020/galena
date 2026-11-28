@@ -11,6 +11,7 @@ import { api } from '../api'
 import { NoteEditor } from '../editor'
 import { shortcutLabel } from '../shortcuts'
 import { closeTab, newNote, openNote, showError, useStore, type Tab } from '../store'
+import { Dictation } from './Dictation'
 import { IconButton } from './IconButton'
 import { Logo } from './Logo'
 
@@ -27,6 +28,7 @@ export function Editor({ leading, trailing, inert }: EditorProps) {
   const tabs = useStore((s) => s.tabs)
   const active = useStore((s) => s.active)
   const tab = tabs.find((t) => t.id === active)
+  const dictation = useStore((s) => !!s.transcription?.configured && !!s.transcription.model)
   const scroller = useRef<HTMLDivElement>(null)
   const host = useRef<HTMLDivElement>(null)
   const editor = useRef<NoteEditor>(null)
@@ -51,7 +53,7 @@ export function Editor({ leading, trailing, inert }: EditorProps) {
 
   return (
     // A container, so that the note's spacing follows the room the side panels leave it.
-    <main className="@container flex min-w-0 flex-1 flex-col bg-background" inert={inert}>
+    <main className="@container relative flex min-w-0 flex-1 flex-col bg-background" inert={inert}>
       <header className="flex h-[52px] shrink-0 items-center gap-1 border-b px-2.5">
         {leading}
         {tabs.length > 0 && (
@@ -134,7 +136,11 @@ export function Editor({ leading, trailing, inert }: EditorProps) {
 
       {/* The column scrolls as a whole; the editor inside grows with its note. */}
       <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto" hidden={!tab}>
-        <article ref={note} className="mx-auto max-w-[720px] px-5 pt-8 pb-16 @2xl:px-10 @2xl:pt-12">
+        <article
+          ref={note}
+          // Room for the dictation bar, so the end of the note can be scrolled clear of it.
+          className={cn('mx-auto max-w-[720px] px-5 pt-8 @2xl:px-10 @2xl:pt-12', dictation ? 'pb-28' : 'pb-16')}
+        >
           {tab && <Breadcrumb path={tab.path} />}
           <div ref={host} />
           {tab && <Backlinks key={tab.path} path={tab.path} />}
@@ -156,6 +162,7 @@ export function Editor({ leading, trailing, inert }: EditorProps) {
           </p>
         </motion.div>
       )}
+      <Dictation />
     </main>
   )
 }

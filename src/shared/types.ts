@@ -236,3 +236,23 @@ export type ServerEvent =
   | { type: 'session'; meta: SessionMeta }
   | { type: 'session-deleted'; id: string }
   | { type: 'chat'; sessionId: string; seq: number; event: ChatEvent }
+
+/** Voice dictation, as the browser sees it: the API key itself never leaves the server. */
+export interface TranscriptionState {
+  /** Id of the provider in use. */
+  provider: string
+  /** Its display name. */
+  providerName: string
+  /** Where to get an API key for it. */
+  keyUrl: string
+  /** The model the user picked; dictation needs one. */
+  model: string | null
+  /** A key is stored for the provider. */
+  configured: boolean
+}
+
+/** A model the provider offers for transcription. */
+export interface TranscriptionModel {
+  id: string
+  name: string
+}

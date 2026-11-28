@@ -15,6 +15,8 @@ import type {
   SessionDetail,
   SessionMeta,
   Settings,
+  TranscriptionModel,
+  TranscriptionState,
 } from '../shared/types'
 
 export class ApiError extends Error {
@@ -77,6 +79,14 @@ export const api = {
   settings: () => request<Settings>('GET', 'settings'),
   saveSettings: (settings: Settings) => request<Settings>('PUT', 'settings', settings),
   agents: () => request<AgentInfo[]>('GET', 'agents'),
+
+  transcription: () => request<TranscriptionState>('GET', 'transcription'),
+  /** A new key is checked before it is stored; null removes the key or unsets the model. */
+  setTranscription: (change: { key?: string | null; model?: string | null }) =>
+    request<TranscriptionState>('PUT', 'transcription', change),
+  transcriptionModels: () => request<TranscriptionModel[]>('GET', 'transcription/models'),
+  /** The recording goes as it is, with its media type. */
+  transcribe: (audio: Blob) => request<{ text: string }>('POST', 'transcribe', audio).then((result) => result.text),
 
   gitDiff: (path: string) => request<GitDiff>('GET', `git/diff?${query({ path })}`),
   /** Where the browser loads a changed image from, as it was in the last commit or as it is now. */
