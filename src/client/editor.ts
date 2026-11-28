@@ -32,6 +32,7 @@ export class NoteEditor {
   constructor(parent: HTMLElement) {
     this.view = new EditorView({ parent })
     editorHooks.flush = () => this.save()
+    editorHooks.insert = (text) => this.insert(text)
     this.unsubscribe = [
       onFsEvent((event) => void this.onFsEvent(event)),
       useStore.subscribe((state, previous) => {
@@ -76,6 +77,28 @@ export class NoteEditor {
       showError(error)
     }
     this.syncDirty(id)
+  }
+
+  /**
+   * Types `text` at the cursor of the note on screen, over the selection, with
+   * a space between it and the words around it. Only while the note has the
+   * focus, so that text never lands where the user is not writing; and not
+   * while it waits for a conflict to be settled, whose edits could be lost.
+   */
+  insert(text: string): boolean {
+    const id = this.shown
+    if (id === null || id !== useStore.getState().active || !this.view.hasFocus || tabById(id)?.conflict) return false
+    const { state } = this.view
+    const { from, to } = state.selection.main
+    const glue = (char: string) => (char && !/\s/.test(char) ? ' ' : '')
+    const insert = glue(state.sliceDoc(Math.max(0, from - 1), from)) + text + glue(state.sliceDoc(to, to + 1))
+    this.view.dispatch({
+      changes: { from, to, insert },
+      selection: { anchor: from + insert.length },
+      scrollIntoView: true,
+      userEvent: 'input.dictate',
+    })
+    return true
   }
 
   /** Settles a conflict by keeping the editor's version or the one on disk. */

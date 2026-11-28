@@ -24,6 +24,7 @@ export interface Keys {
 export const shortcuts = {
   palette: { keys: { mod: true, key: 'k' }, name: 'Search the vault' },
   save: { keys: { mod: true, key: 's' }, name: 'Save the note' },
+  dictate: { keys: { ctrl: true, shift: true, key: 'Space' }, name: 'Start or end a dictation' },
   /** Bound in the editor (selection.ts), as it acts on the selection; listed here for its label. */
   addToChat: { keys: { mod: true, key: 'l' }, name: 'Add the selection to the chat' },
 } as const satisfies Record<string, { keys: Keys; name: string }>

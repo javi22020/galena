@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { ariaShortcut, codeMirrorKey, matches, shortcutLabel, shortcuts, type Keys } from './shortcuts'
+import { ariaShortcut, codeMirrorKey, matches, shortcutLabel, shortcuts } from './shortcuts'
 
 /** A key press as the browser describes it; modifiers default to up. */
 function press(key: string, code: string, mods: Partial<KeyboardEvent> = {}): KeyboardEvent {
@@ -7,6 +7,7 @@ function press(key: string, code: string, mods: Partial<KeyboardEvent> = {}): Ke
 }
 
 const palette = shortcuts.palette.keys
+const dictate = shortcuts.dictate.keys
 
 test('Mod is Ctrl off a Mac and ⌘ on one, and not the other', () => {
   expect(matches(press('k', 'KeyK', { ctrlKey: true }), palette, false)).toBe(true)
@@ -28,19 +29,21 @@ test('extra modifiers make it another shortcut', () => {
   expect(matches(press('k', 'KeyK', { ctrlKey: true, altKey: true }), palette, false)).toBe(false)
 })
 
-test('Ctrl is Ctrl on every platform, and a named key is matched by the key itself', () => {
-  const keys: Keys = { ctrl: true, shift: true, key: 'Space' }
+test('dictation is Ctrl+Shift+Space on every platform, by the key itself', () => {
   for (const mac of [false, true]) {
-    expect(matches(press(' ', 'Space', { ctrlKey: true, shiftKey: true }), keys, mac)).toBe(true)
-    expect(matches(press(' ', 'Space', { metaKey: true, shiftKey: true }), keys, mac)).toBe(false)
-    expect(matches(press(' ', 'Space', { ctrlKey: true }), keys, mac)).toBe(false)
+    expect(matches(press(' ', 'Space', { ctrlKey: true, shiftKey: true }), dictate, mac)).toBe(true)
+    expect(matches(press(' ', 'Space', { metaKey: true, shiftKey: true }), dictate, mac)).toBe(false)
+    expect(matches(press(' ', 'Space', { ctrlKey: true }), dictate, mac)).toBe(false)
   }
 })
 
 test('shortcuts are written the way each platform writes them', () => {
   expect(shortcutLabel('palette', false)).toBe('Ctrl K')
   expect(shortcutLabel('palette', true)).toBe('⌘K')
+  expect(shortcutLabel('dictate', false)).toBe('Ctrl Shift Space')
+  expect(shortcutLabel('dictate', true)).toBe('⌃⇧Space')
   expect(ariaShortcut('palette', false)).toBe('Control+K')
   expect(ariaShortcut('palette', true)).toBe('Meta+K')
+  expect(ariaShortcut('dictate', true)).toBe('Control+Shift+Space')
   expect(codeMirrorKey('addToChat')).toBe('Mod-l')
 })

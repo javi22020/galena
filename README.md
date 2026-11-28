@@ -48,9 +48,23 @@ the Git already on your machine, if there is one.
   and a view to resolve the conflicts a merge leaves, one by one. Changes are
   committed whole. `.galena/` stays out of the repository unless you say
   otherwise in Settings; its trash always does.
+- **Dictation.** With a Google AI Studio API key and one of Gemini's
+  transcription models picked in Settings, a bar at the bottom of the editor
+  records from the microphone (Ctrl+Shift+Space starts it, and pressed again
+  ends it), pauses without finishing, and on stop
+  transcribes with that model and types the text at the cursor, if the cursor
+  is still in the note the dictation started in; otherwise it goes to the
+  clipboard.
+  Long recordings are sent in pieces of up to 30 minutes, cut at a pause, and
+  transcribed while you keep talking.
 
-Galena stores no credentials: each agent uses the login or API key of its own
-CLI, and Git uses the credential helper or SSH keys it is already set up with.
+The only credential Galena stores is that API key, kept in
+`~/.config/galena/transcription.json` (or under `XDG_CONFIG_HOME`), readable
+only by you on macOS and Linux, outside every vault and never sent to the
+browser. Recordings go from Galena's server to Google's Gemini API, asking it
+not to keep them. Each agent
+uses the login or API key of its own CLI, and Git uses the credential helper or
+SSH keys it is already set up with.
 Agents published as npm or PyPI packages run through `npx`/`uvx`; the rest,
 and the ones you add yourself, need a launch command, set in Settings.
 
@@ -83,6 +97,7 @@ before `pnpm dev`. Without it, the dev server opens on the home screen.
 | `src/server/sessions.ts`  | Chats and their ACP sessions                                |
 | `src/server/git*.ts`      | The vault's Git repository, through the installed `git`     |
 | `src/server/registry.ts`  | The ACP agent registry                                      |
+| `src/server/transcription`| Dictation: speech-to-text providers (Gemini) and their key  |
 | `src/shared`              | Types, transcript reducer and config option helpers         |
 | `src/client`              | The React app                                               |
 
