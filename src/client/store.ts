@@ -161,7 +161,7 @@ export async function sync(): Promise<void> {
     set({ phase: 'workspace', ...state, entries, settings, sessions, agentId })
     refreshGit()
   } catch {
-    setTimeout(sync, 2000) // the server is unreachable; keep trying
+    setTimeout(() => void sync(), 2000) // the server is unreachable; keep trying
     return
   }
   api.agents().then((agents) => set({ agents }), showError)
@@ -179,7 +179,7 @@ function connect(): void {
   socket.onmessage = (message) => onServerEvent(JSON.parse(message.data))
   socket.onclose = () => {
     socket = undefined
-    setTimeout(sync, 1000)
+    setTimeout(() => void sync(), 1000)
   }
 }
 
