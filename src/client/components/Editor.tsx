@@ -4,12 +4,12 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { collapse, enterProps, outExpo, quick } from '@/lib/motion'
-import { shortcut } from '@/lib/platform'
 import { cn } from '@/lib/utils'
 import { noteName } from '../../shared/links'
 import type { LineMatch } from '../../shared/types'
 import { api } from '../api'
 import { NoteEditor } from '../editor'
+import { shortcutLabel } from '../shortcuts'
 import { closeTab, newNote, openNote, showError, useStore, type Tab } from '../store'
 import { IconButton } from './IconButton'
 import { Logo } from './Logo'
@@ -150,7 +150,7 @@ export function Editor({ leading, trailing, inert }: EditorProps) {
           <p className="text-[13px] text-muted-foreground">
             Pick one in the explorer
             <span className="pointer-coarse:hidden">
-              , or press <Kbd>{shortcut('K')}</Kbd> to search
+              , or press <Kbd>{shortcutLabel('palette')}</Kbd> to search
             </span>
             .
           </p>

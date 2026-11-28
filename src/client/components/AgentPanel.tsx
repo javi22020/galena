@@ -32,10 +32,10 @@ import {
   MessageScrollerViewport,
 } from '@/components/ui/message-scroller'
 import { enterProps, outExpo } from '@/lib/motion'
-import { shortcut } from '@/lib/platform'
 import { cn } from '@/lib/utils'
 import type { SessionMeta } from '../../shared/types'
 import { api } from '../api'
+import { shortcutLabel } from '../shortcuts'
 import { newChat, pickAgent, selectChat, showError, useStore } from '../store'
 import { Composer } from './Composer'
 import { ModelPicker, modelOption } from './ConfigOptions'
@@ -146,7 +146,7 @@ export function AgentPanel() {
                             Ask the agent about your notes. Type @ to mention a note or folder, or select text
                             in a note{' '}
                             <span className="pointer-coarse:hidden">
-                              and press <Kbd>{shortcut('L')}</Kbd>{' '}
+                              and press <Kbd>{shortcutLabel('addToChat')}</Kbd>{' '}
                             </span>
                             to add it.
                           </>

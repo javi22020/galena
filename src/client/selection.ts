@@ -5,7 +5,7 @@
 
 import { Prec, StateEffect, StateField, type EditorState, type Extension } from '@codemirror/state'
 import { EditorView, keymap, showTooltip, ViewPlugin, type Tooltip } from '@codemirror/view'
-import { shortcut } from './lib/platform'
+import { ariaShortcut, codeMirrorKey, shortcutLabel } from './shortcuts'
 
 /** Text selected in a note, with the lines it spans (counted from 1). */
 export interface PickedText {
@@ -65,7 +65,7 @@ export function addToChatButton(add: (picked: PickedText | null) => void): Exten
     return { destroy: () => window.removeEventListener('mouseup', onUp) }
   })
 
-  return [field, dragEnd, Prec.high(keymap.of([{ key: 'Mod-l', run, preventDefault: true }]))]
+  return [field, dragEnd, Prec.high(keymap.of([{ key: codeMirrorKey('addToChat'), run, preventDefault: true }]))]
 }
 
 /** The button over the end of the selection the user moved, on the side away from the text. */
@@ -80,11 +80,11 @@ function tooltipFor(state: EditorState, run: (view: EditorView) => boolean): Too
       dom.className = 'cm-add-to-chat'
       const button = document.createElement('button')
       button.type = 'button'
-      button.setAttribute('aria-keyshortcuts', 'Control+L Meta+L')
+      button.setAttribute('aria-keyshortcuts', ariaShortcut('addToChat'))
       const label = document.createElement('span')
       label.textContent = 'Add to chat'
       const key = document.createElement('kbd')
-      key.textContent = shortcut('L')
+      key.textContent = shortcutLabel('addToChat')
       button.append(label, key)
       // Keeps the focus, and so the selection, in the editor.
       button.onmousedown = (event) => event.preventDefault()
