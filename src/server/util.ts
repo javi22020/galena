@@ -6,7 +6,7 @@ import path from 'node:path'
 /** An error whose message is safe to show to the user, with its HTTP status. */
 export class HttpError extends Error {
   constructor(
-    readonly status: 400 | 401 | 403 | 404 | 409 | 413 | 415 | 502,
+    readonly status: 400 | 401 | 403 | 404 | 409 | 413 | 415 | 429 | 502,
     message: string,
   ) {
     super(message)
@@ -47,10 +47,14 @@ export async function readJson<T>(file: string, fallback: T): Promise<T> {
   }
 }
 
-/** Writes through a temporary file so a crash never leaves a truncated one. */
-export async function writeJson(file: string, data: unknown): Promise<void> {
+/**
+ * Writes through a temporary file so a crash never leaves a truncated one.
+ * `mode` sets the file's permissions from the start, for files with secrets
+ * (Windows only honours its read-only bit).
+ */
+export async function writeJson(file: string, data: unknown, mode?: number): Promise<void> {
   await mkdir(path.dirname(file), { recursive: true })
   const temp = `${file}.${randomUUID()}.tmp`
-  await writeFile(temp, JSON.stringify(data, null, 2))
+  await writeFile(temp, JSON.stringify(data, null, 2), { mode })
   await rename(temp, file)
 }
