@@ -11,6 +11,7 @@ import { AGENT_OVERLAY, EXPLORER_OVERLAY, useMediaQuery } from '@/lib/layout'
 import { smooth } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 import { codeFonts, textFonts } from '../../shared/fonts'
+import { useShortcut } from '../shortcuts'
 import { editorHooks, LAYOUT_KEY, setAgentOpen, setDrawer, setModal, toggleAgent, useStore } from '../store'
 import { toggleTheme, useTheme } from '../theme'
 import { AgentPanel } from './AgentPanel'
@@ -90,20 +91,8 @@ export function Workspace() {
     }
   }, [drawer, explorerOverlay, agentOverlay])
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey)) return
-      if (event.key === 'k') {
-        event.preventDefault()
-        setModal('palette')
-      } else if (event.key === 's') {
-        event.preventDefault()
-        void editorHooks.flush()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  useShortcut('palette', () => setModal('palette'))
+  useShortcut('save', () => void editorHooks.flush())
 
   return (
     <div

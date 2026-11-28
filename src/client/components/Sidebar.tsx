@@ -2,7 +2,7 @@ import { ChevronsUpDown, FolderPlus, GitBranch, Plus, RefreshCw, Search } from '
 import { useMemo, useRef, useState } from 'react'
 import { Kbd } from '@/components/ui/kbd'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { shortcut } from '@/lib/platform'
+import { shortcutLabel } from '../shortcuts'
 import { refreshGit, setModal, useStore } from '../store'
 import { Explorer, type ExplorerHandle } from './Explorer'
 import { GitPanel } from './GitPanel'
@@ -41,7 +41,7 @@ export function Sidebar() {
       >
         <Search className="size-[15px]" />
         <span className="flex-1 text-left">Search notes…</span>
-        <Kbd className="pointer-coarse:hidden">{shortcut('K')}</Kbd>
+        <Kbd className="pointer-coarse:hidden">{shortcutLabel('palette')}</Kbd>
       </button>
 
       <div className="-mb-1 flex shrink-0 items-center pt-1">
